@@ -553,11 +553,13 @@ export class UnleashClient extends TinyEmitter {
 
     private async fetchToggles() {
         if (this.fetch) {
-            // Check if abortController is already aborted before calling abort
-            if (this.abortController && !this.abortController.signal.aborted) {
-                this.abortController.abort();
-            }
+            const oldController = this.abortController;
             this.abortController = this.createAbortController?.();
+            // Check if abortController is already aborted before calling abort
+            if (oldController && !oldController.signal.aborted) {
+                oldController.abort();
+            }
+
             const signal = this.abortController
                 ? this.abortController.signal
                 : undefined;
