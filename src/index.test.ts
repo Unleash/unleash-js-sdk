@@ -1174,7 +1174,7 @@ test('Should setContextField with userId', async () => {
         appName: 'web',
     };
     const client = new UnleashClient(config);
-    client.setContextField('userId', userId);
+    await client.setContextField('userId', userId);
     const context = client.getContext();
     expect(context.userId).toBe(userId);
 });
@@ -1188,17 +1188,28 @@ test('Should removeContextField', async () => {
         appName: 'web',
     };
     const client = new UnleashClient(config);
-    client.setContextField('userId', userId);
+    await client.setContextField('userId', userId);
     client.setContextField('customField', customValue);
+    const context1 = client.getContext();
+    expect(context1).toEqual({
+        appName: 'web',
+        environment: 'default',
+        properties: {
+            customField: customValue,
+        },
+        sessionId: expect.any(String),
+        userId: userId,
+    });
 
-    client.removeContextField('userId');
-    client.removeContextField('customField');
-    const context = client.getContext();
+    await client.removeContextField('userId');
+    await client.removeContextField('customField');
+    const context2 = client.getContext();
 
-    expect(context).toEqual({
+    expect(context2).toEqual({
         appName: 'web',
         environment: 'default',
         properties: {},
+        sessionId: expect.any(String),
     });
 });
 
@@ -1210,7 +1221,7 @@ test('Should setContextField with sessionId', async () => {
         appName: 'web',
     };
     const client = new UnleashClient(config);
-    client.setContextField('sessionId', sessionId);
+    await client.setContextField('sessionId', sessionId);
     const context = client.getContext();
     expect(context.sessionId).toBe(sessionId);
 });
