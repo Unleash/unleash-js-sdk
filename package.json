@@ -30,14 +30,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/unleash/unleash-proxy-client-js.git"
+    "url": "git+https://github.com/unleash/unleash-js-sdk.git"
   },
   "author": "@Unleash",
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/unleash/unleash-proxy-client-js/issues"
+    "url": "https://github.com/unleash/unleash-js-sdk/issues"
   },
-  "homepage": "https://github.com/unleash/unleash-proxy-client-js#readme",
+  "homepage": "https://github.com/unleash/unleash-js-sdk#readme",
   "dependencies": {
     "tiny-emitter": "^2.1.0",
     "uuid": "^9.0.1"
