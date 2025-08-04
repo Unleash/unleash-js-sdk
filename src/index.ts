@@ -373,7 +373,7 @@ export class UnleashClient extends TinyEmitter {
         return { ...this.context };
     }
 
-    public setContextField(field: string, value: string) {
+    public async setContextField(field: string, value: string): Promise<void> {
         if (isDefinedContextField(field)) {
             this.context = { ...this.context, [field]: value };
         } else {
@@ -381,17 +381,17 @@ export class UnleashClient extends TinyEmitter {
             this.context = { ...this.context, properties };
         }
 
-        this.updateToggles();
+        await this.updateToggles();
     }
 
-    public removeContextField(field: string): void {
+    public async removeContextField(field: string): Promise<void> {
         if (isDefinedContextField(field)) {
             this.context = { ...this.context, [field]: undefined };
         } else if (typeof this.context.properties === 'object') {
             delete this.context.properties[field];
         }
 
-        this.updateToggles();
+        await this.updateToggles();
     }
 
     private setReady() {
