@@ -1,12 +1,12 @@
 # Unleash Frontend SDK for the browser (JS)
 
-The JavaScript client is a tiny Unleash client written in JavaScript without any external dependencies (except from browser APIs). This client stores toggles relevant for the current user in `localStorage` and synchronizes with Unleash (the [Unleash front-end API](https://docs.getunleash.io/reference/front-end-api) _or_ [Unleash edge](https://docs.getunleash.io/reference/unleash-edge)) in the background. Because toggles are stored in the user's browser, the client can use them to bootstrap itself the next time the user visits the same web page.
-
-This client expect `fetch` to be available. 
-
 Unleash is a private, secure, and scalable [feature management platform](https://www.getunleash.io/) built to reduce the risk of releasing new features and accelerate software development. This JavaScript Frontend SDK is designed to help you integrate with Unleash and evaluate feature flags inside your application.
 
 You can use this client with [Unleash Enterprise](https://www.getunleash.io/pricing?utm_source=readme&utm_medium=js) or [Unleash Open Source](https://github.com/Unleash/unleash).
+
+The JavaScript client is a tiny Unleash client written in JavaScript without any external dependencies (except from browser APIs). This client stores toggles relevant for the current user in `localStorage` and synchronizes with Unleash (the [Unleash front-end API](https://docs.getunleash.io/reference/front-end-api) _or_ [Unleash edge](https://docs.getunleash.io/reference/unleash-edge)) in the background. Because toggles are stored in the user's browser, the client can use them to bootstrap itself the next time the user visits the same web page.
+
+This client expect `fetch` to be available. 
 
 ## Frameworks supported
 
