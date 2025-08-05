@@ -4,7 +4,7 @@ Unleash is a private, secure, and scalable [feature management platform](http
 
 You can use this client with [Unleash Enterprise](https://www.getunleash.io/pricing?utm_source=readme&utm_medium=js) or [Unleash Open Source](https://github.com/Unleash/unleash).
 
-The JavaScript client is a tiny Unleash client written in JavaScript without any external dependencies (except from browser APIs). This client stores toggles relevant for the current user in `localStorage` and synchronizes with Unleash (the [Unleash front-end API](https://docs.getunleash.io/reference/front-end-api) _or_ [Unleash edge](https://docs.getunleash.io/reference/unleash-edge)) in the background. Because toggles are stored in the user's browser, the client can use them to bootstrap itself the next time the user visits the same web page.
+The JavaScript client is a tiny Unleash client written in JavaScript without any external dependencies (except from browser APIs). This client stores toggles relevant for the current user in `localStorage` and synchronizes with Unleash (the [Unleash Frontend API](https://docs.getunleash.io/reference/front-end-api) _or_ [Unleash edge](https://docs.getunleash.io/reference/unleash-edge)) in the background. Because toggles are stored in the user's browser, the client can use them to bootstrap itself the next time the user visits the same web page.
 
 This client expect `fetch` to be available. 
 
@@ -31,7 +31,7 @@ npm install unleash-proxy-client
 
 ---
 
-💡 **TIP**: As a client-side SDK, this SDK requires you to connect to either Unleash Edge or to the Unleash front-end API. Refer to the [connection options section](#connection-options) for more information.
+💡 **TIP**: As a client-side SDK, this SDK requires you to connect to either Unleash Edge or to the Unleash Frontend API. Refer to the [connection options section](#connection-options) for more information.
 
 ---
 
@@ -42,7 +42,7 @@ import { UnleashClient } from 'unleash-proxy-client';
 
 const unleash = new UnleashClient({
     url: 'https://<your-unleash-instance>/api/frontend',
-    clientKey: '<your-client-side-token>',
+    clientKey: '<your-frontend-token>',
     appName: 'my-webapp',
 });
 
@@ -52,7 +52,7 @@ unleash.start();
 
 #### Connection options
 
-To connect this SDK to your Unleash instance's [front-end API](https://docs.getunleash.io/reference/front-end-api), use the URL to your Unleash instance's front-end API (`<unleash-url>/api/frontend`) as the `url` parameter. For the `clientKey` parameter, use a `FRONTEND` token generated from your Unleash instance. Refer to the [_how to create API tokens_](https://docs.getunleash.io/how-to/how-to-create-api-tokens) guide for the necessary steps.
+To connect this SDK to your Unleash instance's [Frontend API](https://docs.getunleash.io/reference/front-end-api), use the URL to your Unleash instance's Frontend API (`<unleash-url>/api/frontend`) as the `url` parameter. For the `clientKey` parameter, use a `FRONTEND` token generated from your Unleash instance. Refer to the [_how to create API tokens_](https://docs.getunleash.io/how-to/how-to-create-api-tokens) guide for the necessary steps.
 
 This SDK can also be used with [Unleash Edge](https://docs.getunleash.io/reference/unleash-edge).
 
@@ -93,7 +93,7 @@ if (variant.name === 'blue') {
 
 The [Unleash context](https://docs.getunleash.io/reference/unleash-context) is used to evaluate features against attributes of a the current user. To update and configure the Unleash context in this SDK, use the `updateContext`, `setContextField` and `removeContextField` methods.
 
-The context you set in your app will be passed along to the Unleash proxy or the front-end API as query parameters for feature evaluation.
+The context you set in your app will be passed along to the Unleash Edge or the Frontend API as query parameters for feature evaluation.
 
 The `updateContext` method will replace the entire
 (mutable part) of the Unleash context with the data that you pass in.
@@ -157,7 +157,7 @@ unleash.on('update', () => {
 
 - **error** - emitted when an error occurs on init, or when fetch function fails, or when fetch receives a non-ok response object. The error object is sent as payload.
 - **initialized** - emitted after the SDK has read local cached data in the storageProvider. 
-- **ready** - emitted after the SDK has successfully started and performed the initial fetch of flags via the network (Edge, proxy, or front-end API). When bootstrapping, the client can emit this event twice: once when the bootstrapped flags are loaded, and once on first successful connection to Unleash.
+- **ready** - emitted after the SDK has successfully started and performed the initial fetch of flags via the network (Edge, or Frontend API). When bootstrapping, the client can emit this event twice: once when the bootstrapped flags are loaded, and once on first successful connection to Unleash.
 - **update** - emitted every time Unleash returns a new feature toggle configuration. The SDK will emit this event as part of the initial fetch from the SDK.  
 - **recovered** - emitted when the SDK has recovered from an error. This event will only be emitted if the SDK has previously emitted an error.
 - **sent** - emitted when the SDK has successfully sent metrics to Unleash.
@@ -190,8 +190,8 @@ import SharedPreferences from 'react-native-shared-preferences';
 import { UnleashClient } from 'unleash-proxy-client';
 
 const unleash = new UnleashClient({
-    url: 'https://eu.unleash-hosted.com/hosted/proxy',
-    clientKey: 'your-proxy-key',
+    url: 'https://eu.unleash-hosted.com/demo/api/frontend',
+    clientKey: 'your-frontend-key',
     appName: 'my-webapp',
     storageProvider: {
       save: (name: string, data: any) => SharedPreferences.setItem(name, data),
@@ -207,8 +207,8 @@ import { UnleashClient } from 'unleash-proxy-client';
 const PREFIX = 'unleash:repository';
 
 const unleash = new UnleashClient({
-    url: 'https://eu.unleash-hosted.com/hosted/proxy',
-    clientKey: 'your-proxy-key',
+    url: 'https://eu.unleash-hosted.com/demo/api/frontend',
+    clientKey: 'your-frontend-key',
     appName: 'my-webapp',
     storageProvider: {
        save: (name: string, data: any) => {
@@ -233,8 +233,8 @@ import fetch from 'node-fetch';
 import { UnleashClient, InMemoryStorageProvider } from 'unleash-proxy-client';
 
 const unleash = new UnleashClient({
-  url: 'https://app.unleash-hosted.com/demo/proxy',
-  clientKey: 'proxy-123',
+  url: 'https://app.unleash-hosted.com/demo/api/frontend',
+  clientKey: '<your-frontend-token>',
   appName: 'nodejs-proxy',
   storageProvider: new InMemoryStorageProvider(),
   fetch,
@@ -253,7 +253,7 @@ console.log(isEnabled);
 <head>
     <script src="https://unpkg.com/unleash-proxy-client@latest/build/main.min.js" type="text/javascript"></script>
     <script type="text/javascript">
-        var config = {url: 'https://app.unleash-hosted.com/demo/proxy', clientKey: 'proxy-123', appName: 'web'};
+        var config = {url: 'https://app.unleash-hosted.com/demo/api/frontend', clientKey: '<your-frontend-token>', appName: 'web'};
         var client = new unleash.UnleashClient(config);
         client.updateContext({userId: '1233'})
 
@@ -278,8 +278,8 @@ There's also a `bootstrapOverride` attribute which is by default is `true`.
 import { UnleashClient } from 'unleash-proxy-client';
 
 const unleash = new UnleashClient({
-  url: 'https://app.unleash-hosted.com/demo/proxy',
-  clientKey: 'proxy-123',
+  url: 'https://app.unleash-hosted.com/demo/api/frontend',
+  clientKey: '<your-frontend-token>',
   appName: 'nodejs-proxy',
   bootstrap: [{
 	"enabled": true,
