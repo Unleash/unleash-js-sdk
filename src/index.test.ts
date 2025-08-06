@@ -1438,7 +1438,7 @@ test('Should add unleash identification headers', async () => {
 
     const expectedHeaders = {
         // will be replaced at build time with the actual version
-        'unleash-sdk': 'unleash-client-js:__VERSION__',
+        'unleash-sdk': 'unleash-js-sdk:__VERSION__',
         'unleash-connection-id': expect.stringMatching(uuidFormat),
         'unleash-appname': appName,
     };
