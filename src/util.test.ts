@@ -135,7 +135,7 @@ describe('parseHeaders', () => {
 
         expect(result).toEqual({
             authorization: clientKey,
-            'unleash-sdk': 'unleash-client-js:__VERSION__',
+            'unleash-sdk': 'unleash-js-sdk:__VERSION__',
             'unleash-appname': appName,
             accept: 'application/json',
             'unleash-connection-id': connectionId,
