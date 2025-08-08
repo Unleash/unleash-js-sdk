@@ -59,6 +59,7 @@ interface IConfig extends IStaticContext {
     impressionDataAll?: boolean;
     usePOSTrequests?: boolean;
     experimental?: IExperimentalConfig;
+    sdkVersion?: string;
 }
 
 interface IExperimentalConfig {
@@ -172,6 +173,7 @@ export class UnleashClient extends TinyEmitter {
     private experimental: IExperimentalConfig;
     private lastRefreshTimestamp: number;
     private connectionId: string;
+    private sdkVersion: string | undefined;
 
     constructor({
         storageProvider,
@@ -194,6 +196,7 @@ export class UnleashClient extends TinyEmitter {
         impressionDataAll = false,
         usePOSTrequests = false,
         experimental,
+        sdkVersion,
     }: IConfig) {
         super();
         // Validations
@@ -272,6 +275,7 @@ export class UnleashClient extends TinyEmitter {
         this.bootstrapOverride = bootstrapOverride;
 
         this.connectionId = uuidv4();
+        this.sdkVersion = sdkVersion;
 
         this.metrics = new Metrics({
             onError: this.emit.bind(this, EVENTS.ERROR),
@@ -286,6 +290,7 @@ export class UnleashClient extends TinyEmitter {
             customHeaders,
             metricsIntervalInitial,
             connectionId: this.connectionId,
+            sdkVersion,
         });
     }
 
@@ -487,6 +492,7 @@ export class UnleashClient extends TinyEmitter {
             headerName: this.headerName,
             etag: this.etag,
             isPost: this.usePOSTrequests,
+            sdkVersion: this.sdkVersion,
         });
     }
 
@@ -636,6 +642,11 @@ export class UnleashClient extends TinyEmitter {
                 this.abortController = null;
             }
         }
+    }
+
+    public setSdkVersion(sdkVersion: string): void {
+        this.sdkVersion = sdkVersion;
+        this.metrics.setSdkVersion(sdkVersion);
     }
 }
 

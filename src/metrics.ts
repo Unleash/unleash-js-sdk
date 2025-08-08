@@ -15,6 +15,7 @@ export interface MetricsOptions {
     customHeaders?: Record<string, string>;
     metricsIntervalInitial: number;
     connectionId: string;
+    sdkVersion?: string;
 }
 
 interface VariantBucket {
@@ -55,6 +56,7 @@ export default class Metrics {
     private customHeaders: Record<string, string>;
     private metricsIntervalInitial: number;
     private connectionId: string;
+    private sdkVersion: string | undefined;
 
     constructor({
         onError,
@@ -69,6 +71,7 @@ export default class Metrics {
         customHeaders = {},
         metricsIntervalInitial,
         connectionId,
+        sdkVersion,
     }: MetricsOptions) {
         this.onError = onError;
         this.onSent = onSent || doNothing;
@@ -83,6 +86,7 @@ export default class Metrics {
         this.headerName = headerName;
         this.customHeaders = customHeaders;
         this.connectionId = connectionId;
+        this.sdkVersion = sdkVersion;
     }
 
     public start() {
@@ -128,6 +132,7 @@ export default class Metrics {
             customHeaders: this.customHeaders,
             headerName: this.headerName,
             isPost: true,
+            sdkVersion: this.sdkVersion,
         });
     }
 
@@ -209,5 +214,9 @@ export default class Metrics {
             appName: this.appName,
             instanceId: 'browser',
         };
+    }
+
+    public setSdkVersion(sdkVersion: string): void {
+        this.sdkVersion = sdkVersion;
     }
 }

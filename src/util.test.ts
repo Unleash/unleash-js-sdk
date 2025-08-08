@@ -158,7 +158,10 @@ describe('parseHeaders', () => {
         const customHeaders = {
             'custom-header': 'custom-value',
             'unleash-connection-id': 'should-not-be-overwritten',
-            'unleash-appname': 'new-app-name',
+            'unleash-appname': 'should-not-be-overwritten-either',
+            'another-custom-header': 'another-custom-value',
+            'content-type': 'this-will-be-dropped',
+            'if-none-match': 'this-will-be-dropped-too',
         };
         const result = parseHeaders({
             clientKey,
@@ -167,11 +170,12 @@ describe('parseHeaders', () => {
             customHeaders,
         });
 
-        expect(Object.keys(result)).toHaveLength(6);
+        expect(Object.keys(result)).toHaveLength(7);
         expect(result).toMatchObject({
             'custom-header': 'custom-value',
             'unleash-connection-id': connectionId,
-            'unleash-appname': 'new-app-name',
+            'unleash-appname': appName,
+            'another-custom-header': 'another-custom-value',
         });
     });
 
@@ -234,5 +238,16 @@ describe('parseHeaders', () => {
         });
 
         expect(result['content-type']).toBe('application/json');
+    });
+
+    test('should support specifying an SDK version', () => {
+        const result = parseHeaders({
+            clientKey,
+            appName,
+            connectionId,
+            sdkVersion: 'my-awesome-sdk:1.33.7',
+        });
+
+        expect(result['unleash-sdk']).toBe('my-awesome-sdk:1.33.7');
     });
 });
