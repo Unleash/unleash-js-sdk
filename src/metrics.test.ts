@@ -330,7 +330,7 @@ describe('Custom headers for metrics', () => {
         const requestBody = getTypeSafeRequest(fetchMock);
         expect(requestBody.headers).toMatchObject({
             'custom-header': '456',
-            'unleash-appname': 'override',
+            'unleash-appname': 'test',
             'unleash-connection-id': '123',
         });
     });

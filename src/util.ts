@@ -1,5 +1,5 @@
 import { IContext } from '.';
-import { sdkVersion } from './version';
+import { jsSDKVersion } from './version';
 
 export const notNullOrUndefined = ([, value]: [string, string]) =>
     value !== undefined && value !== null;
@@ -72,14 +72,31 @@ export const computeContextHashValue = async (obj: IContext) => {
     }
 };
 
+const isValidCustomHeader = (header: [string, string]): boolean => {
+    if (!notNullOrUndefined(header)) return false;
+
+    const headerName = header[0].toLowerCase();
+    return (
+        headerName !== 'content-type' &&
+        headerName !== 'if-none-match' &&
+        !headerName.startsWith('unleash-')
+    );
+};
+
+const getSdkIdentifier = (sdkVersion?: string) => {
+    if (!sdkVersion || !sdkVersion.includes(':')) return jsSDKVersion;
+    return sdkVersion;
+};
+
 export const parseHeaders = ({
     clientKey,
     appName,
     connectionId,
-    customHeaders,
+    customHeaders = {},
     headerName = 'authorization',
     etag,
     isPost,
+    sdkVersion,
 }: {
     clientKey: string;
     connectionId: string;
@@ -88,12 +105,14 @@ export const parseHeaders = ({
     headerName?: string;
     etag?: string;
     isPost?: boolean;
+    sdkVersion?: string;
 }): Record<string, string> => {
     const headers: Record<string, string> = {
         accept: 'application/json',
         [headerName.toLocaleLowerCase()]: clientKey,
-        'unleash-sdk': sdkVersion,
+        'unleash-sdk': getSdkIdentifier(sdkVersion),
         'unleash-appname': appName,
+        'unleash-connection-id': connectionId,
     };
 
     if (isPost) {
@@ -104,13 +123,11 @@ export const parseHeaders = ({
         headers['if-none-match'] = etag;
     }
 
-    Object.entries(customHeaders || {})
-        .filter(notNullOrUndefined)
+    Object.entries(customHeaders)
+        .filter(isValidCustomHeader)
         .forEach(
             ([name, value]) => (headers[name.toLocaleLowerCase()] = value)
         );
-
-    headers['unleash-connection-id'] = connectionId;
 
     return headers;
 };
