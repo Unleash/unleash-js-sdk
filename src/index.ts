@@ -274,7 +274,8 @@ export class UnleashClient extends TinyEmitter {
         this.connectionId = uuidv4();
 
         this.metrics = new Metrics({
-            onError: this.emit.bind(this, EVENTS.ERROR),
+            onError: (err) =>
+                this.emit(EVENTS.ERROR, { type: 'metrics', error: err }),
             onSent: this.emit.bind(this, EVENTS.SENT),
             appName,
             metricsInterval,
@@ -629,7 +630,10 @@ export class UnleashClient extends TinyEmitter {
                         e
                     );
                     this.sdkState = 'error';
-                    this.emit(EVENTS.ERROR, e);
+                    this.emit(EVENTS.ERROR, {
+                        type: 'fetch-toggles',
+                        error: e,
+                    });
                     this.lastError = e;
                 }
             } finally {
