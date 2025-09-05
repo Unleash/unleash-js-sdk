@@ -653,15 +653,22 @@ test('Should publish error when initial init fails', (done) => {
         storageProvider,
     };
     const client = new UnleashClient(config);
-    client.start();
+
+    let errorReceived = false;
     client.on(EVENTS.ERROR, (e: any) => {
-        expect(e).toBe(givenError);
-        done();
+        if (!errorReceived) {
+            errorReceived = true;
+            expect(e).toBe(givenError);
+            done();
+        }
     });
+    client.start();
 });
 
 test('Should publish error when fetch fails', (done) => {
-    const givenError = new Error('Error');
+    const givenError = new Error(
+        JSON.stringify({ error: 'Error', type: 'fetch-toggles' })
+    );
 
     jest.spyOn(global.console, 'error').mockImplementation(() => jest.fn());
     fetchMock.mockReject(givenError);
@@ -674,7 +681,10 @@ test('Should publish error when fetch fails', (done) => {
     const client = new UnleashClient(config);
     client.start();
     client.on(EVENTS.ERROR, (e: any) => {
-        expect(e).toBe(givenError);
+        expect(e).toStrictEqual({
+            type: 'fetch-toggles',
+            error: givenError,
+        });
         done();
     });
 });
