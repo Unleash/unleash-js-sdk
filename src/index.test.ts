@@ -900,6 +900,69 @@ test('Should require valid clientKey', () => {
     }).toThrow();
 });
 
+test('Should not throw and run in no-op mode when failSoft and url is missing', () => {
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+    const config: IConfig = {
+        url: '',
+        clientKey: 'key',
+        appName: 'app',
+        failSoft: true,
+    };
+    const client = new UnleashClient(config);
+    expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Unleash: invalid config')
+    );
+    expect(client.isEnabled('any')).toBe(false);
+    expect(client.getVariant('any').enabled).toBe(false);
+    consoleSpy.mockRestore();
+});
+
+test('Should not throw and run in no-op mode when failSoft and clientKey is missing', () => {
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+    const config: IConfig = {
+        url: 'http://localhost/test',
+        clientKey: '',
+        appName: 'app',
+        failSoft: true,
+    };
+    const client = new UnleashClient(config);
+    expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Unleash: invalid config')
+    );
+    expect(client.isEnabled('any')).toBe(false);
+    consoleSpy.mockRestore();
+});
+
+test('Should not throw and run in no-op mode when failSoft and appName is missing', () => {
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+    const config: IConfig = {
+        url: 'http://localhost/test',
+        clientKey: 'key',
+        appName: '',
+        failSoft: true,
+    };
+    const client = new UnleashClient(config);
+    expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Unleash: invalid config')
+    );
+    expect(client.isEnabled('any')).toBe(false);
+    consoleSpy.mockRestore();
+});
+
+test('Should not fetch or start metrics when failSoft and config is invalid', async () => {
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+    const config: IConfig = {
+        url: '',
+        clientKey: '',
+        appName: '',
+        failSoft: true,
+    };
+    const client = new UnleashClient(config);
+    await client.start();
+    expect(fetchMock.mock.calls.length).toBe(0);
+    consoleSpy.mockRestore();
+});
+
 test('Should stop fetching when stop is called', async () => {
     fetchMock.mockResponses(
         [JSON.stringify(data), { status: 200 }],
