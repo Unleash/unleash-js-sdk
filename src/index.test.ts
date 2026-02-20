@@ -900,7 +900,7 @@ test('Should require valid clientKey', () => {
     }).toThrow();
 });
 
-test('Should not throw and run in no-op mode when failSoft and url is missing', () => {
+test('Should not throw when failSoft and url is missing', () => {
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
     const config: IConfig = {
         url: '',
@@ -917,7 +917,7 @@ test('Should not throw and run in no-op mode when failSoft and url is missing', 
     consoleSpy.mockRestore();
 });
 
-test('Should not throw and run in no-op mode when failSoft and clientKey is missing', () => {
+test('Should not throw when failSoft and clientKey is missing', () => {
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
     const config: IConfig = {
         url: 'http://localhost/test',
@@ -933,7 +933,7 @@ test('Should not throw and run in no-op mode when failSoft and clientKey is miss
     consoleSpy.mockRestore();
 });
 
-test('Should not throw and run in no-op mode when failSoft and appName is missing', () => {
+test('Should not throw when failSoft and appName is missing', () => {
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
     const config: IConfig = {
         url: 'http://localhost/test',
@@ -949,7 +949,7 @@ test('Should not throw and run in no-op mode when failSoft and appName is missin
     consoleSpy.mockRestore();
 });
 
-test('Should not fetch or start metrics when failSoft and config is invalid', async () => {
+test('Should log error per each missing field when failSoft', () => {
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
     const config: IConfig = {
         url: '',
@@ -957,9 +957,28 @@ test('Should not fetch or start metrics when failSoft and config is invalid', as
         appName: '',
         failSoft: true,
     };
+    new UnleashClient(config);
+    const invalidConfigCalls = consoleSpy.mock.calls.filter(
+        (call) =>
+            typeof call[0] === 'string' &&
+            call[0].includes('Unleash: invalid config')
+    );
+    expect(invalidConfigCalls).toHaveLength(3);
+    consoleSpy.mockRestore();
+});
+
+test('Should still call start and await ready when failSoft and config is invalid', async () => {
+    fetchMock.mockRejectOnce(new Error('Network error'));
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+    const config: IConfig = {
+        url: 'http://localhost/test',
+        clientKey: '',
+        appName: '',
+        failSoft: true,
+    };
     const client = new UnleashClient(config);
     await client.start();
-    expect(fetchMock.mock.calls.length).toBe(0);
+    client.stop();
     consoleSpy.mockRestore();
 });
 

@@ -40,10 +40,30 @@ const isDefinedContextField = (field: string): field is DefinedField => {
     return DEFINED_FIELDS.includes(field as DefinedField);
 };
 
-const isConfigValueMissing = (value: string | URL | undefined): boolean => {
-    if (value === undefined || value === null) return true;
-    if (typeof value === 'string') return value.trim() === '';
-    return false;
+const validateConfig = ({
+    url,
+    clientKey,
+    appName,
+    failSoft,
+}: Pick<IConfig, 'url' | 'clientKey' | 'appName' | 'failSoft'>) => {
+    const isMissing = (value: string | URL | undefined) =>
+        value === undefined ||
+        value === null ||
+        (typeof value === 'string' && value.trim() === '');
+
+    const requiredFields = { url, clientKey, appName };
+
+    for (const [field, value] of Object.entries(requiredFields)) {
+        if (isMissing(value)) {
+            if (failSoft) {
+                console.error(
+                    `Unleash: invalid config (missing or empty: ${field}). Running in no-op mode: all flags are disabled.`
+                );
+            } else {
+                throw new Error(`${field} is required`);
+            }
+        }
+    }
 };
 
 interface IConfig extends IStaticContext {
@@ -184,7 +204,6 @@ export class UnleashClient extends TinyEmitter {
     private experimental: IExperimentalConfig;
     private lastRefreshTimestamp: number;
     private connectionId: string;
-    private isConfigInvalid: boolean;
 
     constructor({
         storageProvider,
@@ -211,47 +230,14 @@ export class UnleashClient extends TinyEmitter {
     }: IConfig) {
         super();
 
-        const urlMissing = isConfigValueMissing(url);
-        const clientKeyMissing = isConfigValueMissing(clientKey);
-        const appNameMissing = isConfigValueMissing(appName);
-        const hasInvalidConfig =
-            urlMissing || clientKeyMissing || appNameMissing;
-
-        this.isConfigInvalid = failSoft && hasInvalidConfig;
-
-        if (this.isConfigInvalid) {
-            const missingParts = [
-                urlMissing && 'url',
-                clientKeyMissing && 'clientKey',
-                appNameMissing && 'appName',
-            ].filter(Boolean) as string[];
-            console.error(
-                `Unleash: invalid config (missing or empty: ${missingParts.join(', ')}). Running in no-op mode: all flags disabled, no requests.`
-            );
-        } else if (hasInvalidConfig) {
-            if (urlMissing) throw new Error('url is required');
-            if (clientKeyMissing) throw new Error('clientKey is required');
-            if (appNameMissing) throw new Error('appName is required.');
-        }
-
-        const effectiveUrl = this.isConfigInvalid
-            ? 'https://unconfigured'
-            : url;
-        const effectiveClientKey = this.isConfigInvalid
-            ? 'сlientKey'
-            : clientKey;
-        const effectiveAppName = this.isConfigInvalid
-            ? 'unconfigured'
-            : appName;
+        validateConfig({ url, clientKey, appName, failSoft });
 
         this.eventsHandler = new EventsHandler();
         this.impressionDataAll = impressionDataAll;
         this.toggles = bootstrap && bootstrap.length > 0 ? bootstrap : [];
         this.url =
-            effectiveUrl instanceof URL
-                ? effectiveUrl
-                : new URL(effectiveUrl as string);
-        this.clientKey = effectiveClientKey;
+            url instanceof URL ? url : new URL(url || 'https://localhost');
+        this.clientKey = clientKey;
         this.headerName = headerName;
         this.customHeaders = customHeaders;
         this.storage =
@@ -261,7 +247,7 @@ export class UnleashClient extends TinyEmitter {
                 : new InMemoryStorageProvider());
         this.refreshInterval = disableRefresh ? 0 : refreshInterval * 1000;
         this.context = {
-            appName: effectiveAppName,
+            appName: appName || 'unknown',
             environment,
             ...context,
         };
@@ -322,11 +308,11 @@ export class UnleashClient extends TinyEmitter {
             onError: (err) =>
                 this.emit(EVENTS.ERROR, { type: 'metrics', error: err }),
             onSent: this.emit.bind(this, EVENTS.SENT),
-            appName: effectiveAppName,
+            appName: appName || 'unknown',
             metricsInterval,
             disableMetrics,
             url: this.experimental?.metricsUrl || this.url,
-            clientKey: effectiveClientKey,
+            clientKey,
             fetch,
             headerName,
             customHeaders,
@@ -480,9 +466,6 @@ export class UnleashClient extends TinyEmitter {
             );
             return;
         }
-        if (this.isConfigInvalid) {
-            return;
-        }
         await this.ready;
         this.metrics.start();
         const interval = this.refreshInterval;
@@ -601,9 +584,6 @@ export class UnleashClient extends TinyEmitter {
     }
 
     private async fetchToggles() {
-        if (this.isConfigInvalid) {
-            return;
-        }
         if (this.fetch) {
             // Check if abortController is already aborted before calling abort
             if (this.abortController && !this.abortController.signal.aborted) {
