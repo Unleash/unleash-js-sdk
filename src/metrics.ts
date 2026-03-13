@@ -1,6 +1,7 @@
 // Simplified version of: https://github.com/Unleash/unleash-client-node/blob/main/src/metrics.ts
 
 import { parseHeaders } from './util';
+import { InMemoryMetricRegistry, type CollectedMetric, type ImpactMetricRegistry } from './impact-metrics';
 
 export interface MetricsOptions {
     onError: OnError;
@@ -15,6 +16,7 @@ export interface MetricsOptions {
     customHeaders?: Record<string, string>;
     metricsIntervalInitial: number;
     connectionId: string;
+    metricRegistry?: ImpactMetricRegistry;
 }
 
 interface VariantBucket {
@@ -33,6 +35,7 @@ interface Payload {
     bucket: Bucket;
     appName: string;
     instanceId: string;
+    impactMetrics?: CollectedMetric[];
 }
 
 type OnError = (error: unknown) => void;
@@ -55,6 +58,7 @@ export default class Metrics {
     private customHeaders: Record<string, string>;
     private metricsIntervalInitial: number;
     private connectionId: string;
+    private metricRegistry: ImpactMetricRegistry;
 
     constructor({
         onError,
@@ -69,6 +73,7 @@ export default class Metrics {
         customHeaders = {},
         metricsIntervalInitial,
         connectionId,
+        metricRegistry,
     }: MetricsOptions) {
         this.onError = onError;
         this.onSent = onSent || doNothing;
@@ -83,6 +88,7 @@ export default class Metrics {
         this.headerName = headerName;
         this.customHeaders = customHeaders;
         this.connectionId = connectionId;
+        this.metricRegistry = metricRegistry || new InMemoryMetricRegistry();
     }
 
     public start() {
@@ -204,10 +210,13 @@ export default class Metrics {
         const bucket = { ...this.bucket, stop: new Date() };
         this.bucket = this.createEmptyBucket();
 
+        const impactMetrics = this.metricRegistry.collect();
+
         return {
             bucket,
             appName: this.appName,
             instanceId: 'browser',
+            impactMetrics: impactMetrics.length > 0 ? impactMetrics : undefined,
         };
     }
 }
