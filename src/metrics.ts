@@ -1,7 +1,11 @@
 // Simplified version of: https://github.com/Unleash/unleash-client-node/blob/main/src/metrics.ts
 
 import { parseHeaders } from './util';
-import { InMemoryMetricRegistry, type CollectedMetric, type ImpactMetricRegistry } from './impact-metrics';
+import {
+    InMemoryMetricRegistry,
+    type CollectedMetric,
+    type ImpactMetricRegistry,
+} from './impact-metrics';
 
 export interface MetricsOptions {
     onError: OnError;
@@ -92,6 +96,12 @@ export default class Metrics {
     }
 
     public start() {
+        console.log(
+            'Unleash metrics start() called, disabled:',
+            this.disabled,
+            'interval:',
+            this.metricsInterval
+        );
         if (this.disabled) {
             return false;
         }
@@ -100,6 +110,10 @@ export default class Metrics {
             typeof this.metricsInterval === 'number' &&
             this.metricsInterval > 0
         ) {
+            console.log(
+                'Unleash metrics timer starting, interval:',
+                this.metricsInterval
+            );
             if (this.metricsIntervalInitial > 0) {
                 setTimeout(() => {
                     this.startTimer();
@@ -146,6 +160,8 @@ export default class Metrics {
         if (this.bucketIsEmpty(payload)) {
             return;
         }
+
+        console.log('Unleash: sending metrics payload:', payload);
 
         try {
             await this.fetch(url, {
@@ -203,7 +219,10 @@ export default class Metrics {
     }
 
     private bucketIsEmpty(payload: Payload) {
-        return Object.keys(payload.bucket.toggles).length === 0;
+        const hasToggleMetrics = Object.keys(payload.bucket.toggles).length > 0;
+        const hasImpactMetrics =
+            payload.impactMetrics && payload.impactMetrics.length > 0;
+        return !hasToggleMetrics && !hasImpactMetrics;
     }
 
     private getPayload(): Payload {
