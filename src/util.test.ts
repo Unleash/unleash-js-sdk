@@ -4,6 +4,8 @@ import {
     contextString,
     urlWithContextAsQuery,
     parseHeaders,
+    inferEnvironmentFromClientKey,
+    inferEnvironmentFromCustomHeaders,
 } from './util';
 
 test('should not add paramters to URL', async () => {
@@ -234,5 +236,46 @@ describe('parseHeaders', () => {
         });
 
         expect(result['content-type']).toBe('application/json');
+    });
+});
+
+describe('inferEnvironmentFromClientKey', () => {
+    // Format: <project>:<environment>.<randomSecret>
+    test('should extract environment from valid token format', () => {
+        expect(inferEnvironmentFromClientKey('key:production.xyz123')).toBe(
+            'production'
+        );
+        expect(inferEnvironmentFromClientKey('key:development.xyz123')).toBe(
+            'development'
+        );
+        expect(inferEnvironmentFromClientKey('org:key:dev.xyz123')).toBe(
+            'key:dev'
+        );
+    });
+
+    test('should extract environment with dots (e.g. prod.us-east)', () => {
+        expect(inferEnvironmentFromClientKey('key:prod.us-east.abc123')).toBe(
+            'prod.us-east'
+        );
+    });
+});
+
+describe('inferEnvironmentFromCustomHeaders', () => {
+    test('should extract environment from unleash-environment header', () => {
+        const headers = {
+            'unleash-appname': 'my-app',
+            'unleash-environment': 'development',
+            'custom-header': 'custom-value',
+        };
+        expect(inferEnvironmentFromCustomHeaders(headers)).toBe('development');
+    });
+
+    test('should return undefined if header not present', () => {
+        const headers = { 'other-header': 'value' };
+        expect(inferEnvironmentFromCustomHeaders(headers)).toBeUndefined();
+    });
+
+    test('should return undefined if customHeaders is empty', () => {
+        expect(inferEnvironmentFromCustomHeaders({})).toBeUndefined();
     });
 });

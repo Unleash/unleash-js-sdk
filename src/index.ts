@@ -6,6 +6,8 @@ import LocalStorageProvider from './storage-provider-local';
 import EventsHandler from './events-handler';
 import {
     computeContextHashValue,
+    inferEnvironmentFromClientKey,
+    inferEnvironmentFromCustomHeaders,
     parseHeaders,
     urlWithContextAsQuery,
 } from './util';
@@ -269,10 +271,18 @@ export class UnleashClient extends TinyEmitter {
         this.connectionId = uuidv4();
 
         this.metricRegistry = new InMemoryMetricRegistry();
-        this.impactMetrics = new MetricsAPI(this.metricRegistry, {
+
+        const resolvedEnvironment = this.resolveEnvironment(
+            clientKey,
+            customHeaders,
+            environment
+        );
+
+        this.impactMetrics = new MetricsAPI(
+            this.metricRegistry,
             appName,
-            environment,
-        });
+            resolvedEnvironment
+        );
 
         this.metrics = new Metrics({
             onError: (err) =>
@@ -642,6 +652,18 @@ export class UnleashClient extends TinyEmitter {
                 this.abortController = null;
             }
         }
+    }
+
+    private resolveEnvironment(
+        clientKey: string,
+        customHeaders: Record<string, string>,
+        configEnv: string
+    ): string {
+        return (
+            inferEnvironmentFromCustomHeaders(customHeaders) ||
+            inferEnvironmentFromClientKey(clientKey) ||
+            configEnv
+        );
     }
 }
 

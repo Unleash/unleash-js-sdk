@@ -5,7 +5,8 @@ import { EVENTS } from '../events';
 export class MetricsAPI extends TinyEmitter {
     constructor(
         private metricRegistry: ImpactMetricRegistry,
-        private context: { appName: string; environment: string }
+        private appName: string,
+        private environment: string
     ) {
         super();
     }
@@ -32,11 +33,9 @@ export class MetricsAPI extends TinyEmitter {
             return;
         }
 
-        const { appName, environment } = this.context;
-
         const labels: MetricLabels = {
-            appName,
-            environment,
+            appName: this.appName,
+            environment: this.environment,
         };
 
         counter.inc(value, labels);
