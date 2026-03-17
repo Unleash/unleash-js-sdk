@@ -269,7 +269,10 @@ export class UnleashClient extends TinyEmitter {
         this.connectionId = uuidv4();
 
         this.metricRegistry = new InMemoryMetricRegistry();
-        this.impactMetrics = new MetricsAPI(this.metricRegistry, appName);
+        this.impactMetrics = new MetricsAPI(this.metricRegistry, {
+            appName,
+            environment,
+        });
 
         this.metrics = new Metrics({
             onError: (err) =>

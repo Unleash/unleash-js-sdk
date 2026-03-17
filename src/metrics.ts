@@ -141,9 +141,6 @@ export default class Metrics {
     }
 
     public async sendMetrics(): Promise<void> {
-        if (this.disabled) {
-            return;
-        }
         /* istanbul ignore next if */
 
         const url = `${this.url}/client/metrics`;

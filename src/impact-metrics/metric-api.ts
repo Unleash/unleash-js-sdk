@@ -5,7 +5,7 @@ import { EVENTS } from '../events';
 export class MetricsAPI extends TinyEmitter {
     constructor(
         private metricRegistry: ImpactMetricRegistry,
-        private appName: string
+        private context: { appName: string; environment: string }
     ) {
         super();
     }
@@ -22,11 +22,7 @@ export class MetricsAPI extends TinyEmitter {
         this.metricRegistry.counter({ name, help, labelNames });
     }
 
-    incrementCounter(
-        name: string,
-        value?: number,
-        labels?: MetricLabels
-    ): void {
+    incrementCounter(name: string, value?: number): void {
         const counter = this.metricRegistry.getCounter(name);
         if (!counter) {
             this.emit(
@@ -36,11 +32,13 @@ export class MetricsAPI extends TinyEmitter {
             return;
         }
 
-        const allLabels: MetricLabels = {
-            appName: this.appName,
-            ...labels,
+        const { appName, environment } = this.context;
+
+        const labels: MetricLabels = {
+            appName,
+            environment,
         };
 
-        counter.inc(value, allLabels);
+        counter.inc(value, labels);
     }
 }
