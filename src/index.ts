@@ -10,6 +10,9 @@ import {
     urlWithContextAsQuery,
 } from './util';
 import { uuidv4 } from './uuidv4';
+import { InMemoryMetricRegistry } from './impact-metrics/metric-types';
+import { MetricsAPI } from './impact-metrics/metric-api';
+import { EVENTS } from './events';
 
 const DEFINED_FIELDS = [
     'userId',
@@ -83,16 +86,6 @@ interface IToggle {
     impressionData: boolean;
 }
 
-export const EVENTS = {
-    INIT: 'initialized',
-    ERROR: 'error',
-    READY: 'ready',
-    UPDATE: 'update',
-    IMPRESSION: 'impression',
-    SENT: 'sent',
-    RECOVERED: 'recovered',
-};
-
 const IMPRESSION_EVENTS = {
     IS_ENABLED: 'isEnabled',
     GET_VARIANT: 'getVariant',
@@ -154,6 +147,8 @@ export class UnleashClient extends TinyEmitter {
     private clientKey: string;
     private etag = '';
     private metrics: Metrics;
+    private metricRegistry: InMemoryMetricRegistry;
+    public impactMetrics: MetricsAPI;
     private ready: Promise<void>;
     private fetch: any;
     private createAbortController?: () => AbortController | null;
@@ -273,6 +268,9 @@ export class UnleashClient extends TinyEmitter {
 
         this.connectionId = uuidv4();
 
+        this.metricRegistry = new InMemoryMetricRegistry();
+        this.impactMetrics = new MetricsAPI(this.metricRegistry, appName);
+
         this.metrics = new Metrics({
             onError: (err) =>
                 this.emit(EVENTS.ERROR, { type: 'metrics', error: err }),
@@ -287,6 +285,7 @@ export class UnleashClient extends TinyEmitter {
             customHeaders,
             metricsIntervalInitial,
             connectionId: this.connectionId,
+            metricRegistry: this.metricRegistry,
         });
     }
 

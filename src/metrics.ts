@@ -1,6 +1,10 @@
 // Simplified version of: https://github.com/Unleash/unleash-client-node/blob/main/src/metrics.ts
 
 import { parseHeaders } from './util';
+import type {
+    ImpactMetricsDataSource,
+    CollectedMetric,
+} from './impact-metrics/metric-types';
 
 export interface MetricsOptions {
     onError: OnError;
@@ -15,6 +19,7 @@ export interface MetricsOptions {
     customHeaders?: Record<string, string>;
     metricsIntervalInitial: number;
     connectionId: string;
+    metricRegistry?: ImpactMetricsDataSource;
 }
 
 interface VariantBucket {
@@ -33,6 +38,7 @@ interface Payload {
     bucket: Bucket;
     appName: string;
     instanceId: string;
+    impactMetrics?: CollectedMetric[];
 }
 
 type OnError = (error: unknown) => void;
@@ -55,6 +61,7 @@ export default class Metrics {
     private customHeaders: Record<string, string>;
     private metricsIntervalInitial: number;
     private connectionId: string;
+    private metricRegistry?: ImpactMetricsDataSource;
 
     constructor({
         onError,
@@ -69,6 +76,7 @@ export default class Metrics {
         customHeaders = {},
         metricsIntervalInitial,
         connectionId,
+        metricRegistry,
     }: MetricsOptions) {
         this.onError = onError;
         this.onSent = onSent || doNothing;
@@ -83,6 +91,7 @@ export default class Metrics {
         this.headerName = headerName;
         this.customHeaders = customHeaders;
         this.connectionId = connectionId;
+        this.metricRegistry = metricRegistry;
     }
 
     public start() {
@@ -132,12 +141,18 @@ export default class Metrics {
     }
 
     public async sendMetrics(): Promise<void> {
+        if (this.disabled) {
+            return;
+        }
         /* istanbul ignore next if */
 
         const url = `${this.url}/client/metrics`;
         const payload = this.getPayload();
 
-        if (this.bucketIsEmpty(payload)) {
+        if (
+            this.bucketIsEmpty(payload) &&
+            (!payload.impactMetrics || payload.impactMetrics.length === 0)
+        ) {
             return;
         }
 
@@ -204,10 +219,15 @@ export default class Metrics {
         const bucket = { ...this.bucket, stop: new Date() };
         this.bucket = this.createEmptyBucket();
 
-        return {
+        const payload: Payload = {
             bucket,
             appName: this.appName,
             instanceId: 'browser',
         };
+
+        const impactMetrics = this.metricRegistry?.collect() || [];
+        payload.impactMetrics = impactMetrics;
+
+        return payload;
     }
 }
