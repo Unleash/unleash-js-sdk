@@ -3,7 +3,6 @@ import 'jest-localstorage-mock';
 import * as data from './test/testdata.json';
 import IStorageProvider from './storage-provider';
 import {
-    EVENTS,
     IConfig,
     IMutableContext,
     IToggle,
@@ -13,6 +12,7 @@ import {
 } from './index';
 import { getTypeSafeRequest, getTypeSafeRequestUrl } from './test';
 import Metrics from './metrics';
+import { EVENTS } from './events';
 
 jest.useFakeTimers();
 

@@ -4,6 +4,7 @@ import {
     contextString,
     urlWithContextAsQuery,
     parseHeaders,
+    inferEnvironmentFromClientKey,
 } from './util';
 
 test('should not add paramters to URL', async () => {
@@ -234,5 +235,32 @@ describe('parseHeaders', () => {
         });
 
         expect(result['content-type']).toBe('application/json');
+    });
+});
+
+describe('inferEnvironmentFromClientKey', () => {
+    // Format: <project>:<environment>.<randomSecret> or []:<environment>.<randomSecret>
+    test('should extract environment from valid token format', () => {
+        expect(inferEnvironmentFromClientKey('key:production.xyz123')).toBe(
+            'production'
+        );
+        expect(inferEnvironmentFromClientKey('key:development.xyz123')).toBe(
+            'development'
+        );
+        expect(inferEnvironmentFromClientKey('org:key:dev.xyz123')).toBe(
+            'key:dev'
+        );
+    });
+
+    test('should extract environment with dots (e.g. prod.us-east)', () => {
+        expect(inferEnvironmentFromClientKey('key:prod.us-east.abc123')).toBe(
+            'prod.us-east'
+        );
+    });
+
+    test('should extract environment for token starting with []', () => {
+        expect(inferEnvironmentFromClientKey('[]:production.abc123')).toBe(
+            'production'
+        );
     });
 });
