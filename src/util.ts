@@ -127,9 +127,3 @@ export const inferEnvironmentFromClientKey = (
 
     return afterColon.slice(0, dotIndex);
 };
-
-export const inferEnvironmentFromCustomHeaders = (
-    customHeaders: Record<string, string>
-): string | undefined => {
-    return customHeaders['unleash-environment'];
-};

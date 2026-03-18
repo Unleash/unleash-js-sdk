@@ -27,18 +27,36 @@ export interface NumericMetricSample {
     value: number;
 }
 
-export type MetricSample = NumericMetricSample;
+export interface BucketMetricSample {
+    labels: MetricLabels;
+    count: number;
+    sum: number;
+    buckets: Array<{ le: number | '+Inf'; count: number }>;
+}
+
+export type MetricSample = NumericMetricSample | BucketMetricSample;
 
 const isNumericMetricSample = (
     sample: MetricSample
 ): sample is NumericMetricSample => 'value' in sample;
 
-export type CollectedMetric = {
-    name: string;
-    help: string;
-    type: 'counter';
-    samples: NumericMetricSample[];
-};
+const isBucketMetricSample = (
+    sample: MetricSample
+): sample is BucketMetricSample => 'buckets' in sample;
+
+export type CollectedMetric =
+    | {
+          name: string;
+          help: string;
+          type: 'counter';
+          samples: NumericMetricSample[];
+      }
+    | {
+          name: string;
+          help: string;
+          type: 'histogram';
+          samples: BucketMetricSample[];
+      };
 
 interface CollectibleMetric {
     collect(): CollectedMetric;
@@ -84,10 +102,117 @@ class CounterImpl implements Counter {
     }
 }
 
+interface HistogramData {
+    count: number;
+    sum: number;
+    buckets: Map<number, number>;
+}
+
+class HistogramImpl implements Histogram {
+    private values = new Map<LabelValuesKey, HistogramData>();
+
+    private buckets: number[];
+
+    constructor(private opts: BucketMetricOptions) {
+        const buckets = opts.buckets || [
+            0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10,
+        ];
+        const sortedBuckets = Array.from(
+            new Set(buckets.filter((b) => b !== Infinity))
+        ).sort((a, b) => a - b);
+        this.buckets = [...sortedBuckets, Infinity];
+    }
+
+    restore(sample: BucketMetricSample): void {
+        const key = getLabelKey(sample.labels);
+        const data: HistogramData = {
+            count: sample.count,
+            sum: sample.sum,
+            buckets: new Map(
+                sample.buckets.map((b) => [
+                    b.le === '+Inf' ? Infinity : (b.le as number),
+                    b.count,
+                ])
+            ),
+        };
+        this.values.set(key, data);
+    }
+
+    observe(value: number, labels?: MetricLabels): void {
+        if (isInvalidValue(value)) return;
+        const key = getLabelKey(labels);
+        let data = this.values.get(key);
+
+        if (!data) {
+            const buckets = new Map<number, number>();
+            for (const bucket of this.buckets) {
+                buckets.set(bucket, 0);
+            }
+
+            data = {
+                count: 0,
+                sum: 0,
+                buckets,
+            };
+            this.values.set(key, data);
+        }
+
+        data.count++;
+        data.sum += value;
+
+        for (const bucket of this.buckets) {
+            if (value <= bucket) {
+                const currentCount = data.buckets.get(bucket) ?? 0;
+                data.buckets.set(bucket, currentCount + 1);
+            }
+        }
+    }
+
+    collect(): CollectedMetric {
+        const samples: BucketMetricSample[] = Array.from(
+            this.values.entries()
+        ).map(([key, data]) => ({
+            labels: parseLabelKey(key),
+            count: data.count,
+            sum: data.sum,
+            buckets: Array.from(data.buckets.entries()).map(([le, count]) => ({
+                le: le === Infinity ? '+Inf' : le,
+                count,
+            })),
+        }));
+
+        this.values.clear();
+
+        if (samples.length === 0) {
+            samples.push({
+                labels: {},
+                count: 0,
+                sum: 0,
+                buckets: this.buckets.map((le) => ({
+                    le: le === Infinity ? '+Inf' : le,
+                    count: 0,
+                })),
+            });
+        }
+
+        return {
+            name: this.opts.name,
+            help: this.opts.help,
+            type: 'histogram',
+            samples,
+        };
+    }
+}
+
 export type MetricLabels = Record<string, string>;
 
 export interface Counter {
     inc(value?: number, labels?: MetricLabels): void;
+}
+
+export interface Histogram {
+    observe(value: number, labels?: MetricLabels): void;
+    restore(sample: BucketMetricSample): void;
 }
 
 export interface ImpactMetricsDataSource {
@@ -97,7 +222,9 @@ export interface ImpactMetricsDataSource {
 
 export interface ImpactMetricRegistry {
     getCounter(counterName: string): Counter | undefined;
+    getHistogram(histogramName: string): Histogram | undefined;
     counter(opts: MetricOptions): Counter;
+    histogram(opts: BucketMetricOptions): Histogram;
 }
 
 export class InMemoryMetricRegistry
@@ -105,8 +232,14 @@ export class InMemoryMetricRegistry
 {
     private counters = new Map<string, Counter & CollectibleMetric>();
 
+    private histograms = new Map<string, Histogram & CollectibleMetric>();
+
     getCounter(counterName: string): Counter | undefined {
         return this.counters.get(counterName);
+    }
+
+    getHistogram(histogramName: string): Histogram | undefined {
+        return this.histograms.get(histogramName);
     }
 
     counter(opts: MetricOptions): Counter {
@@ -119,12 +252,26 @@ export class InMemoryMetricRegistry
         return counter;
     }
 
+    histogram(opts: BucketMetricOptions): Histogram {
+        const key = opts.name;
+        let histogram = this.histograms.get(key);
+        if (!histogram) {
+            histogram = new HistogramImpl(opts);
+            this.histograms.set(key, histogram);
+        }
+        return histogram;
+    }
+
     collect(): CollectedMetric[] {
         const allCounters = Array.from(this.counters.values()).map((c) =>
             c.collect()
         );
+        const allHistograms = Array.from(this.histograms.values()).map((h) =>
+            h.collect()
+        );
+        const allMetrics = [...allCounters, ...allHistograms];
 
-        const nonEmpty = allCounters.filter(
+        const nonEmpty = allMetrics.filter(
             (metric) => metric.samples.length > 0
         );
         return nonEmpty.length > 0 ? nonEmpty : [];
@@ -132,13 +279,40 @@ export class InMemoryMetricRegistry
 
     restore(metrics: CollectedMetric[]): void {
         for (const metric of metrics) {
-            const counter = this.counter({
-                name: metric.name,
-                help: metric.help,
-            });
-            for (const sample of metric.samples) {
-                if (isNumericMetricSample(sample)) {
-                    counter.inc(sample.value, sample.labels);
+            switch (metric.type) {
+                case 'counter': {
+                    const counter = this.counter({
+                        name: metric.name,
+                        help: metric.help,
+                    });
+                    for (const sample of metric.samples) {
+                        if (isNumericMetricSample(sample)) {
+                            counter.inc(sample.value, sample.labels);
+                        }
+                    }
+                    break;
+                }
+
+                case 'histogram': {
+                    const firstSample =
+                        metric.samples.find(isBucketMetricSample);
+                    if (firstSample) {
+                        const buckets = firstSample.buckets.map((b) =>
+                            b.le === '+Inf' ? Infinity : (b.le as number)
+                        );
+                        const histogram = this.histogram({
+                            name: metric.name,
+                            help: metric.help,
+                            buckets,
+                        });
+
+                        metric.samples
+                            .filter(isBucketMetricSample)
+                            .forEach((sample) => {
+                                histogram.restore(sample);
+                            });
+                    }
+                    break;
                 }
             }
         }
@@ -149,4 +323,8 @@ export interface MetricOptions {
     name: string;
     help: string;
     labelNames?: string[];
+}
+
+export interface BucketMetricOptions extends MetricOptions {
+    buckets: number[];
 }

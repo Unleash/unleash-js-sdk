@@ -7,7 +7,6 @@ import EventsHandler from './events-handler';
 import {
     computeContextHashValue,
     inferEnvironmentFromClientKey,
-    inferEnvironmentFromCustomHeaders,
     parseHeaders,
     urlWithContextAsQuery,
 } from './util';
@@ -274,7 +273,6 @@ export class UnleashClient extends TinyEmitter {
 
         const resolvedEnvironment = this.resolveEnvironment(
             clientKey,
-            customHeaders,
             environment
         );
 
@@ -654,16 +652,8 @@ export class UnleashClient extends TinyEmitter {
         }
     }
 
-    private resolveEnvironment(
-        clientKey: string,
-        customHeaders: Record<string, string>,
-        configEnv: string
-    ): string {
-        return (
-            inferEnvironmentFromCustomHeaders(customHeaders) ||
-            inferEnvironmentFromClientKey(clientKey) ||
-            configEnv
-        );
+    private resolveEnvironment(clientKey: string, configEnv: string): string {
+        return inferEnvironmentFromClientKey(clientKey) || configEnv;
     }
 }
 

@@ -5,7 +5,6 @@ import {
     urlWithContextAsQuery,
     parseHeaders,
     inferEnvironmentFromClientKey,
-    inferEnvironmentFromCustomHeaders,
 } from './util';
 
 test('should not add paramters to URL', async () => {
@@ -257,25 +256,5 @@ describe('inferEnvironmentFromClientKey', () => {
         expect(inferEnvironmentFromClientKey('key:prod.us-east.abc123')).toBe(
             'prod.us-east'
         );
-    });
-});
-
-describe('inferEnvironmentFromCustomHeaders', () => {
-    test('should extract environment from unleash-environment header', () => {
-        const headers = {
-            'unleash-appname': 'my-app',
-            'unleash-environment': 'development',
-            'custom-header': 'custom-value',
-        };
-        expect(inferEnvironmentFromCustomHeaders(headers)).toBe('development');
-    });
-
-    test('should return undefined if header not present', () => {
-        const headers = { 'other-header': 'value' };
-        expect(inferEnvironmentFromCustomHeaders(headers)).toBeUndefined();
-    });
-
-    test('should return undefined if customHeaders is empty', () => {
-        expect(inferEnvironmentFromCustomHeaders({})).toBeUndefined();
     });
 });
