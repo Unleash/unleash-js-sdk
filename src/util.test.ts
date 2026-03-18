@@ -239,7 +239,7 @@ describe('parseHeaders', () => {
 });
 
 describe('inferEnvironmentFromClientKey', () => {
-    // Format: <project>:<environment>.<randomSecret>
+    // Format: <project>:<environment>.<randomSecret> or []:<environment>.<randomSecret>
     test('should extract environment from valid token format', () => {
         expect(inferEnvironmentFromClientKey('key:production.xyz123')).toBe(
             'production'
@@ -255,6 +255,12 @@ describe('inferEnvironmentFromClientKey', () => {
     test('should extract environment with dots (e.g. prod.us-east)', () => {
         expect(inferEnvironmentFromClientKey('key:prod.us-east.abc123')).toBe(
             'prod.us-east'
+        );
+    });
+
+    test('should extract environment for token starting with []', () => {
+        expect(inferEnvironmentFromClientKey('[]:production.abc123')).toBe(
+            'production'
         );
     });
 });
