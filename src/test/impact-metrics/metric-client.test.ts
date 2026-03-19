@@ -82,3 +82,61 @@ test('defining a counter automatically sets label names', () => {
     api.defineCounter('test_counter', 'Test help text');
     expect(counterRegistered).toBe(true);
 });
+
+test('should not register a histogram with empty name or help', () => {
+    let histogramRegistered = false;
+
+    const fakeRegistry = {
+        histogram: () => {
+            histogramRegistered = true;
+        },
+    } as unknown as ImpactMetricRegistry;
+
+    const api = new MetricsAPI(fakeRegistry, 'my-app', 'default');
+
+    api.defineHistogram('some_name', '');
+    expect(histogramRegistered).toBe(false);
+
+    api.defineHistogram('', 'some_help');
+    expect(histogramRegistered).toBe(false);
+});
+
+test('should register a histogram with valid name and help', () => {
+    let histogramRegistered = false;
+
+    const fakeRegistry = {
+        histogram: () => {
+            histogramRegistered = true;
+        },
+    } as unknown as ImpactMetricRegistry;
+
+    const api = new MetricsAPI(fakeRegistry, 'my-app', 'default');
+
+    api.defineHistogram('valid_name', 'Valid help text');
+    expect(histogramRegistered).toBe(true);
+});
+
+test('should observe histogram with valid parameters', () => {
+    let histogramObserved = false;
+    let recordedLabels: MetricLabels = {};
+
+    const fakeHistogram = {
+        observe: (_value: number, labels: MetricLabels) => {
+            histogramObserved = true;
+            recordedLabels = labels;
+        },
+    };
+
+    const fakeRegistry = {
+        getHistogram: () => fakeHistogram,
+    } as unknown as ImpactMetricRegistry;
+
+    const api = new MetricsAPI(fakeRegistry, 'my-app', 'default');
+
+    api.observeHistogram('valid_histogram', 1.5);
+    expect(histogramObserved).toBe(true);
+    expect(recordedLabels).toStrictEqual({
+        appName: 'my-app',
+        environment: 'default',
+    });
+});

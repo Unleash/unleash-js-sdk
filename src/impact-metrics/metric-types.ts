@@ -114,9 +114,13 @@ class HistogramImpl implements Histogram {
     private buckets: number[];
 
     constructor(private opts: BucketMetricOptions) {
-        const buckets = opts.buckets || [
+        const defaultBuckets = [
             0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10,
         ];
+        const buckets =
+            opts.buckets && opts.buckets.length > 0
+                ? opts.buckets
+                : defaultBuckets;
         const sortedBuckets = Array.from(
             new Set(buckets.filter((b) => b !== Infinity))
         ).sort((a, b) => a - b);
@@ -326,5 +330,5 @@ export interface MetricOptions {
 }
 
 export interface BucketMetricOptions extends MetricOptions {
-    buckets: number[];
+    buckets?: number[];
 }
