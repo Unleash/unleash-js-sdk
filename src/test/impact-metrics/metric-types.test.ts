@@ -1,4 +1,8 @@
-import { InMemoryMetricRegistry } from '../../impact-metrics/metric-types';
+import {
+    BucketMetricSample,
+    CollectedMetric,
+    InMemoryMetricRegistry,
+} from '../../impact-metrics/metric-types';
 
 test('Counter increments by default value', () => {
     const registry = new InMemoryMetricRegistry();
@@ -298,6 +302,70 @@ test('Histogram restoration preserves exact data', () => {
 
     const restoredCollect = registry.collect();
     expect(restoredCollect).toStrictEqual(firstCollect);
+});
+
+test('Histogram uses default buckets when none are provided', () => {
+    const registry = new InMemoryMetricRegistry();
+    const histogram = registry.histogram({
+        name: 'default_buckets',
+        help: 'should get default buckets',
+        buckets: undefined,
+    });
+
+    histogram.observe(0.05);
+
+    const result = registry.collect();
+    const metric = result.find((m) => m.name === 'default_buckets');
+
+    expect(metric!.type).toBe('histogram');
+    const sample = metric!.samples[0] as BucketMetricSample;
+    const les = sample.buckets.map((b: any) => b.le);
+    expect(les).toStrictEqual([
+        0.005,
+        0.01,
+        0.025,
+        0.05,
+        0.1,
+        0.25,
+        0.5,
+        1,
+        2.5,
+        5,
+        10,
+        '+Inf',
+    ]);
+});
+
+test('Histogram uses default buckets when empty array is provided', () => {
+    const registry = new InMemoryMetricRegistry();
+    const histogram = registry.histogram({
+        name: 'empty_buckets',
+        help: 'should get default buckets',
+        buckets: [],
+    });
+
+    histogram.observe(0.05);
+
+    const result = registry.collect();
+    const metric = result.find((m) => m.name === 'empty_buckets');
+
+    expect(metric!.type).toBe('histogram');
+    const sample = metric!.samples[0] as BucketMetricSample;
+    const les = sample.buckets.map((b: any) => b.le);
+    expect(les).toStrictEqual([
+        0.005,
+        0.01,
+        0.025,
+        0.05,
+        0.1,
+        0.25,
+        0.5,
+        1,
+        2.5,
+        5,
+        10,
+        '+Inf',
+    ]);
 });
 
 test.each([Infinity, -Infinity, NaN])(

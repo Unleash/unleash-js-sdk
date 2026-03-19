@@ -36,7 +36,7 @@ export class MetricsAPI extends TinyEmitter {
             name,
             help,
             labelNames,
-            buckets: buckets || [],
+            buckets,
         });
     }
 
