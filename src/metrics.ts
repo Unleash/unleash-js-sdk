@@ -99,6 +99,8 @@ export default class Metrics {
             return false;
         }
 
+        this.setupMetricsFlushOnPageUnload();
+
         if (
             typeof this.metricsInterval === 'number' &&
             this.metricsInterval > 0
@@ -226,5 +228,40 @@ export default class Metrics {
         payload.impactMetrics = impactMetrics;
 
         return payload;
+    }
+
+    private setupMetricsFlushOnPageUnload(): void {
+        const isNotBrowserEnvironment = typeof document === 'undefined';
+        if (isNotBrowserEnvironment) {
+            return;
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                this.flushMetrics();
+            }
+        });
+    }
+
+    private flushMetrics() {
+        const payload = this.getPayload();
+
+        const hasMetricsToSend = payload.impactMetrics?.some((metric) =>
+            metric.samples.some((sample) =>
+                'value' in sample ? sample.value > 0 : sample.count > 0
+            )
+        );
+
+        if (!hasMetricsToSend) {
+            return;
+        }
+
+        const url = `${this.url}/client/metrics`;
+        this.fetch(url, {
+            method: 'POST',
+            headers: this.getHeaders(),
+            body: JSON.stringify(payload),
+            keepalive: true,
+        });
     }
 }

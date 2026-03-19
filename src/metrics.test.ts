@@ -1,6 +1,7 @@
 import { FetchMock } from 'jest-fetch-mock';
 import Metrics from './metrics';
 import { getTypeSafeRequest, parseRequestBodyWithType } from './test';
+import { InMemoryMetricRegistry } from './impact-metrics/metric-types';
 
 jest.useFakeTimers();
 
@@ -333,5 +334,123 @@ describe('Custom headers for metrics', () => {
             'unleash-appname': 'override',
             'unleash-connection-id': '123',
         });
+    });
+});
+
+describe('Flush metrics on page hidden', () => {
+    const simulatePageHidden = () => {
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'hidden',
+        });
+        document.dispatchEvent(new Event('visibilitychange'));
+    };
+
+    const simulatePageVisible = () => {
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'visible',
+        });
+        document.dispatchEvent(new Event('visibilitychange'));
+    };
+
+    afterEach(() => {
+        simulatePageVisible();
+    });
+
+    test('should not send when there are no impact metrics', () => {
+        const registry = new InMemoryMetricRegistry();
+
+        const metrics = new Metrics({
+            onError: console.error,
+            appName: 'test',
+            metricsInterval: 0,
+            disableMetrics: false,
+            url: 'http://localhost:3000',
+            clientKey: '123',
+            fetch: fetchMock,
+            headerName: 'Authorization',
+            metricsIntervalInitial: 0,
+            connectionId: '123',
+            metricRegistry: registry,
+        });
+
+        metrics.start();
+        simulatePageHidden();
+
+        expect(fetchMock.mock.calls.length).toEqual(0);
+    });
+
+    test('should send impact metrics with keepalive on page hidden', () => {
+        const registry = new InMemoryMetricRegistry();
+        const counter = registry.counter({
+            name: 'test_counter',
+            help: 'test',
+        });
+
+        const metrics = new Metrics({
+            onError: console.error,
+            appName: 'test',
+            metricsInterval: 0,
+            disableMetrics: false,
+            url: 'http://localhost:3000',
+            clientKey: '123',
+            fetch: fetchMock,
+            headerName: 'Authorization',
+            metricsIntervalInitial: 0,
+            connectionId: '123',
+            metricRegistry: registry,
+        });
+
+        metrics.start();
+        counter.inc(5, { appName: 'test', environment: 'default' });
+
+        simulatePageHidden();
+
+        expect(fetchMock.mock.calls.length).toEqual(1);
+
+        const [url, options] = fetchMock.mock.calls[0] as any;
+        expect(url).toContain('/client/metrics');
+        expect(options.keepalive).toBe(true);
+
+        const body = JSON.parse(options.body);
+        expect(body.impactMetrics).toHaveLength(1);
+        expect(body.impactMetrics[0].name).toBe('test_counter');
+    });
+
+    test('should not double-send metrics already sent by sendMetrics', async () => {
+        const registry = new InMemoryMetricRegistry();
+        const histogram = registry.histogram({
+            name: 'test_histogram',
+            help: 'test',
+        });
+
+        const metrics = new Metrics({
+            onError: console.error,
+            appName: 'test',
+            metricsInterval: 0,
+            disableMetrics: false,
+            url: 'http://localhost:3000',
+            clientKey: '123',
+            fetch: fetchMock,
+            headerName: 'Authorization',
+            metricsIntervalInitial: 0,
+            connectionId: '123',
+            metricRegistry: registry,
+        });
+
+        metrics.start();
+        histogram.observe(0.5, { appName: 'test', environment: 'default' });
+
+        await metrics.sendMetrics();
+
+        const [, firstOptions] = fetchMock.mock.calls[0] as any;
+        const firstBody = JSON.parse(firstOptions.body);
+        expect(firstBody.impactMetrics[0].name).toBe('test_histogram');
+        expect(firstBody.impactMetrics[0].samples[0].count).toEqual(1);
+
+        simulatePageHidden();
+
+        expect(fetchMock.mock.calls.length).toEqual(1);
     });
 });
