@@ -1,6 +1,5 @@
 import {
     BucketMetricSample,
-    CollectedMetric,
     InMemoryMetricRegistry,
 } from '../../impact-metrics/metric-types';
 
