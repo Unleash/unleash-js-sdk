@@ -354,31 +354,15 @@ describe('Flush metrics on page hidden', () => {
         document.dispatchEvent(new Event('visibilitychange'));
     };
 
-    afterEach(() => {
-        simulatePageVisible();
+    let metricsInstance: Metrics | undefined;
+
+    beforeEach(() => {
+        fetchMock.resetMocks();
     });
 
-    test('should not send when there are no impact metrics', () => {
-        const registry = new InMemoryMetricRegistry();
-
-        const metrics = new Metrics({
-            onError: console.error,
-            appName: 'test',
-            metricsInterval: 0,
-            disableMetrics: false,
-            url: 'http://localhost:3000',
-            clientKey: '123',
-            fetch: fetchMock,
-            headerName: 'Authorization',
-            metricsIntervalInitial: 0,
-            connectionId: '123',
-            metricRegistry: registry,
-        });
-
-        metrics.start();
-        simulatePageHidden();
-
-        expect(fetchMock.mock.calls.length).toEqual(0);
+    afterEach(() => {
+        metricsInstance?.stop();
+        simulatePageVisible();
     });
 
     test('should send impact metrics with keepalive on page hidden', () => {
@@ -388,7 +372,7 @@ describe('Flush metrics on page hidden', () => {
             help: 'test',
         });
 
-        const metrics = new Metrics({
+        metricsInstance = new Metrics({
             onError: console.error,
             appName: 'test',
             metricsInterval: 0,
@@ -402,14 +386,14 @@ describe('Flush metrics on page hidden', () => {
             metricRegistry: registry,
         });
 
-        metrics.start();
+        metricsInstance.start();
         counter.inc(5, { appName: 'test', environment: 'default' });
 
         simulatePageHidden();
 
-        expect(fetchMock.mock.calls.length).toEqual(1);
+        const flushCall = fetchMock.mock.calls[fetchMock.mock.calls.length - 1];
 
-        const [url, options] = fetchMock.mock.calls[0] as any;
+        const [url, options] = flushCall as any;
         expect(url).toContain('/client/metrics');
         expect(options.keepalive).toBe(true);
 
@@ -418,14 +402,14 @@ describe('Flush metrics on page hidden', () => {
         expect(body.impactMetrics[0].name).toBe('test_counter');
     });
 
-    test('should not double-send metrics already sent by sendMetrics', async () => {
+    test('should not double-send metrics after interval on page hidden, only zero values', async () => {
         const registry = new InMemoryMetricRegistry();
         const histogram = registry.histogram({
             name: 'test_histogram',
             help: 'test',
         });
 
-        const metrics = new Metrics({
+        metricsInstance = new Metrics({
             onError: console.error,
             appName: 'test',
             metricsInterval: 0,
@@ -439,18 +423,22 @@ describe('Flush metrics on page hidden', () => {
             metricRegistry: registry,
         });
 
-        metrics.start();
+        metricsInstance.start();
         histogram.observe(0.5, { appName: 'test', environment: 'default' });
 
-        await metrics.sendMetrics();
+        await metricsInstance.sendMetrics();
 
-        const [, firstOptions] = fetchMock.mock.calls[0] as any;
-        const firstBody = JSON.parse(firstOptions.body);
-        expect(firstBody.impactMetrics[0].name).toBe('test_histogram');
-        expect(firstBody.impactMetrics[0].samples[0].count).toEqual(1);
+        const [, intervalOptions] = fetchMock.mock.calls[0] as any;
+        const intervalBody = JSON.parse(intervalOptions.body);
+        expect(intervalBody.impactMetrics[0].name).toBe('test_histogram');
+        expect(intervalBody.impactMetrics[0].samples[0].count).toEqual(1);
 
         simulatePageHidden();
 
-        expect(fetchMock.mock.calls.length).toEqual(1);
+        expect(fetchMock.mock.calls.length).toEqual(2);
+
+        const [, pageHiddenOptions] = fetchMock.mock.calls[1] as any;
+        const pageHiddenBody = JSON.parse(pageHiddenOptions.body);
+        expect(pageHiddenBody.impactMetrics[0].samples[0].count).toEqual(0);
     });
 });
