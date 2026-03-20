@@ -238,7 +238,7 @@ export default class Metrics {
     private setupMetricsFlushOnPageUnload(): void {
         const isNotBrowserEnvironment =
             typeof document === 'undefined' ||
-            typeof window === undefined ||
+            typeof window === 'undefined' ||
             typeof document.addEventListener !== 'function';
         if (isNotBrowserEnvironment) {
             return;
