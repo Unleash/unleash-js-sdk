@@ -1149,8 +1149,6 @@ test('Should not add property fields when properties is an empty object', async 
 
     const url = new URL(getTypeSafeRequestUrl(fetchMock));
 
-    // console.log(url.toString(), url.searchParams.toString(), url.searchParams.get('properties'));
-
     expect(url.searchParams.get('appName')).toEqual('web');
     expect(url.searchParams.get('environment')).toEqual('prod');
     expect(url.searchParams.get('properties')).toBeNull();
