@@ -366,7 +366,8 @@ export class UnleashClient extends TinyEmitter {
         // @ts-expect-error Give the user a nicer error message when
         // including static fields in the mutable context object
         if (context.appName || context.environment) {
-            console.warn(
+            this.emit(
+                EVENTS.WARN,
                 "appName and environment are static. They can't be updated with updateContext."
             );
         }
