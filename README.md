@@ -6,7 +6,7 @@ You can use this client with [Unleash Enterprise](https://www.getunleash.io/pric
 
 The JavaScript client is a tiny Unleash client written in JavaScript without any external dependencies (except from browser APIs). This client stores toggles relevant for the current user in `localStorage` and synchronizes with Unleash (the [Unleash Frontend API](https://docs.getunleash.io/reference/front-end-api) _or_ [Unleash edge](https://docs.getunleash.io/reference/unleash-edge)) in the background. Because toggles are stored in the user's browser, the client can use them to bootstrap itself the next time the user visits the same web page.
 
-This client expect `fetch` to be available. 
+This client expects `fetch` to be available. 
 
 ## Frameworks supported
 
@@ -91,7 +91,7 @@ if (variant.name === 'blue') {
 
 #### Updating the Unleash context
 
-The [Unleash context](https://docs.getunleash.io/reference/unleash-context) is used to evaluate features against attributes of a the current user. To update and configure the Unleash context in this SDK, use the `updateContext`, `setContextField` and `removeContextField` methods.
+The [Unleash context](https://docs.getunleash.io/reference/unleash-context) is used to evaluate features against attributes of the current user. To update and configure the Unleash context in this SDK, use the `updateContext`, `setContextField` and `removeContextField` methods.
 
 The context you set in your app will be passed along to the Unleash Edge or the Frontend API as query parameters for feature evaluation.
 
@@ -161,8 +161,9 @@ unleash.on('update', () => {
 - **update** - emitted every time Unleash returns a new feature toggle configuration. The SDK will emit this event as part of the initial fetch from the SDK.  
 - **recovered** - emitted when the SDK has recovered from an error. This event will only be emitted if the SDK has previously emitted an error.
 - **sent** - emitted when the SDK has successfully sent metrics to Unleash.
+- **warn** - emitted when the SDK encounters a non-fatal issue, such as invalid metric definitions.
 
-> PS! Please remember that you should always register your event listeners before your call `unleash.start()`. If you register them after you have started the SDK you risk loosing important events. 
+> PS! Please remember that you should always register your event listeners before your call `unleash.start()`. If you register them after you have started the SDK you risk losing important events. 
 
 ### SessionId - Important note!
 
