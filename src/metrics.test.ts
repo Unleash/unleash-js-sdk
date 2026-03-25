@@ -1,6 +1,7 @@
 import { FetchMock } from 'jest-fetch-mock';
 import Metrics from './metrics';
 import { getTypeSafeRequest, parseRequestBodyWithType } from './test';
+import { InMemoryMetricRegistry } from './impact-metrics/metric-types';
 
 jest.useFakeTimers();
 
@@ -333,5 +334,111 @@ describe('Custom headers for metrics', () => {
             'unleash-appname': 'override',
             'unleash-connection-id': '123',
         });
+    });
+});
+
+describe('Flush metrics on page hidden', () => {
+    const simulatePageHidden = () => {
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'hidden',
+        });
+        document.dispatchEvent(new Event('visibilitychange'));
+    };
+
+    const simulatePageVisible = () => {
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'visible',
+        });
+        document.dispatchEvent(new Event('visibilitychange'));
+    };
+
+    let metricsInstance: Metrics | undefined;
+
+    beforeEach(() => {
+        fetchMock.resetMocks();
+    });
+
+    afterEach(() => {
+        metricsInstance?.stop();
+        simulatePageVisible();
+    });
+
+    test('should send impact metrics with keepalive on page hidden', () => {
+        const registry = new InMemoryMetricRegistry();
+        const counter = registry.counter({
+            name: 'test_counter',
+            help: 'test',
+        });
+
+        metricsInstance = new Metrics({
+            onError: console.error,
+            appName: 'test',
+            metricsInterval: 0,
+            disableMetrics: false,
+            url: 'http://localhost:3000',
+            clientKey: '123',
+            fetch: fetchMock,
+            headerName: 'Authorization',
+            metricsIntervalInitial: 0,
+            connectionId: '123',
+            metricRegistry: registry,
+        });
+
+        metricsInstance.start();
+        counter.inc(5, { appName: 'test', environment: 'default' });
+
+        simulatePageHidden();
+
+        const flushCall = fetchMock.mock.calls[fetchMock.mock.calls.length - 1];
+
+        const [url, options] = flushCall as any;
+        expect(url).toContain('/client/metrics');
+        expect(options.keepalive).toBe(true);
+
+        const body = JSON.parse(options.body);
+        expect(body.impactMetrics).toHaveLength(1);
+        expect(body.impactMetrics[0].name).toBe('test_counter');
+    });
+
+    test('should not double-send metrics after interval on page hidden, only zero values', async () => {
+        const registry = new InMemoryMetricRegistry();
+        const histogram = registry.histogram({
+            name: 'test_histogram',
+            help: 'test',
+        });
+
+        metricsInstance = new Metrics({
+            onError: console.error,
+            appName: 'test',
+            metricsInterval: 0,
+            disableMetrics: false,
+            url: 'http://localhost:3000',
+            clientKey: '123',
+            fetch: fetchMock,
+            headerName: 'Authorization',
+            metricsIntervalInitial: 0,
+            connectionId: '123',
+            metricRegistry: registry,
+        });
+
+        metricsInstance.start();
+        histogram.observe(0.5, { appName: 'test', environment: 'default' });
+
+        await metricsInstance.sendMetrics();
+
+        const [, intervalOptions] = fetchMock.mock.calls[0] as any;
+        const intervalBody = JSON.parse(intervalOptions.body);
+        expect(intervalBody.impactMetrics[0].name).toBe('test_histogram');
+        expect(intervalBody.impactMetrics[0].samples[0].count).toEqual(1);
+
+        simulatePageHidden();
+
+        expect(fetchMock.mock.calls.length).toEqual(2);
+
+        const [, pageHiddenOptions] = fetchMock.mock.calls[1] as any;
+        const pageHiddenBody = JSON.parse(pageHiddenOptions.body);
+        expect(pageHiddenBody.impactMetrics[0].samples[0].count).toEqual(0);
     });
 });

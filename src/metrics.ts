@@ -62,6 +62,7 @@ export default class Metrics {
     private metricsIntervalInitial: number;
     private connectionId: string;
     private metricRegistry?: ImpactMetricsDataSource;
+    private flushMetricsOnPageUnload?: () => void;
 
     constructor({
         onError,
@@ -99,6 +100,8 @@ export default class Metrics {
             return false;
         }
 
+        this.setupMetricsFlushOnPageUnload();
+
         if (
             typeof this.metricsInterval === 'number' &&
             this.metricsInterval > 0
@@ -119,6 +122,7 @@ export default class Metrics {
             clearInterval(this.timer);
             delete this.timer;
         }
+        this.removeMetricsFlushOnPageUnload();
     }
 
     public createEmptyBucket(): Bucket {
@@ -140,7 +144,9 @@ export default class Metrics {
         });
     }
 
-    public async sendMetrics(): Promise<void> {
+    public async sendMetrics({
+        fireAndForget = false,
+    }: { fireAndForget?: boolean } = {}): Promise<void> {
         /* istanbul ignore next if */
 
         const url = `${this.url}/client/metrics`;
@@ -159,6 +165,7 @@ export default class Metrics {
                 method: 'POST',
                 headers: this.getHeaders(),
                 body: JSON.stringify(payload),
+                keepalive: fireAndForget,
             });
             this.onSent(payload);
         } catch (e) {
@@ -226,5 +233,34 @@ export default class Metrics {
         payload.impactMetrics = impactMetrics;
 
         return payload;
+    }
+
+    private setupMetricsFlushOnPageUnload(): void {
+        const isNotBrowserEnvironment =
+            typeof document === 'undefined' ||
+            typeof window === 'undefined' ||
+            typeof document.addEventListener !== 'function';
+        if (isNotBrowserEnvironment) {
+            return;
+        }
+
+        document.addEventListener(
+            'visibilitychange',
+            (this.flushMetricsOnPageUnload = () => {
+                if (document.visibilityState === 'hidden') {
+                    this.sendMetrics({ fireAndForget: true });
+                }
+            })
+        );
+    }
+
+    private removeMetricsFlushOnPageUnload() {
+        if (this.flushMetricsOnPageUnload) {
+            document.removeEventListener(
+                'visibilitychange',
+                this.flushMetricsOnPageUnload
+            );
+            this.flushMetricsOnPageUnload = undefined;
+        }
     }
 }
