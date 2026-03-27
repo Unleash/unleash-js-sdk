@@ -662,3 +662,5 @@ export class UnleashClient extends TinyEmitter {
 export { type IStorageProvider, LocalStorageProvider, InMemoryStorageProvider };
 
 export type { IConfig, IContext, IMutableContext, IVariant, IToggle };
+
+export { EVENTS } from './events';
