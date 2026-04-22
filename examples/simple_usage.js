@@ -7,12 +7,13 @@ const client = new UnleashClient({
     storageProvider: new InMemoryStorageProvider(),
     refreshInterval: 15,
     metricsInterval: 30,
+    sendImpressionEvents: true,
     context: {
         userId: 'demo-user-123',
     },
 });
 
-const featureName = 'my-feature';
+const featureName = 'dancing-skeleton';
 
 client.on('error', (error) => {
     console.error('Unleash client error:', error);

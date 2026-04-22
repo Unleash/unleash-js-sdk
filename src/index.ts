@@ -1,5 +1,6 @@
 import { TinyEmitter } from 'tiny-emitter';
 import Metrics from './metrics';
+import ImpressionEventsSender from './impression-events-sender';
 import type IStorageProvider from './storage-provider';
 import InMemoryStorageProvider from './storage-provider-inmemory';
 import LocalStorageProvider from './storage-provider-local';
@@ -61,6 +62,7 @@ interface IConfig extends IStaticContext {
     headerName?: string;
     customHeaders?: Record<string, string>;
     impressionDataAll?: boolean;
+    sendImpressionEvents?: boolean;
     usePOSTrequests?: boolean;
     experimental?: IExperimentalConfig;
 }
@@ -140,6 +142,7 @@ const resolveAbortController = () => {
 export class UnleashClient extends TinyEmitter {
     private toggles: IToggle[] = [];
     private impressionDataAll: boolean;
+    private sendImpressionEvents: boolean;
     private context: IContext;
     private timerRef?: any;
     private storage: IStorageProvider;
@@ -148,6 +151,7 @@ export class UnleashClient extends TinyEmitter {
     private clientKey: string;
     private etag = '';
     private metrics: Metrics;
+    private impressionEventsSender: ImpressionEventsSender;
     private metricRegistry: InMemoryMetricRegistry;
     public impactMetrics: MetricsAPI;
     private ready: Promise<void>;
@@ -188,6 +192,7 @@ export class UnleashClient extends TinyEmitter {
         headerName = 'Authorization',
         customHeaders = {},
         impressionDataAll = false,
+        sendImpressionEvents = false,
         usePOSTrequests = false,
         experimental,
     }: IConfig) {
@@ -204,6 +209,7 @@ export class UnleashClient extends TinyEmitter {
         }
         this.eventsHandler = new EventsHandler();
         this.impressionDataAll = impressionDataAll;
+        this.sendImpressionEvents = sendImpressionEvents;
         this.toggles = bootstrap && bootstrap.length > 0 ? bootstrap : [];
         this.url = url instanceof URL ? url : new URL(url);
         this.clientKey = clientKey;
@@ -298,6 +304,22 @@ export class UnleashClient extends TinyEmitter {
             connectionId: this.connectionId,
             metricRegistry: this.metricRegistry,
         });
+
+        this.impressionEventsSender = new ImpressionEventsSender({
+            onError: (err) =>
+                this.emit(EVENTS.ERROR, {
+                    type: 'impression-events',
+                    error: err,
+                }),
+            appName,
+            disabled: !sendImpressionEvents,
+            url: this.experimental?.metricsUrl || this.url,
+            clientKey,
+            fetch,
+            headerName,
+            customHeaders,
+            connectionId: this.connectionId,
+        });
     }
 
     public getAllToggles(): IToggle[] {
@@ -309,7 +331,9 @@ export class UnleashClient extends TinyEmitter {
         const enabled = toggle ? toggle.enabled : false;
         this.metrics.count(toggleName, enabled);
 
-        if (toggle?.impressionData || this.impressionDataAll) {
+        const shouldEmitLocally =
+            toggle?.impressionData || this.impressionDataAll;
+        if (shouldEmitLocally || this.sendImpressionEvents) {
             const event = this.eventsHandler.createImpressionEvent(
                 this.context,
                 enabled,
@@ -317,7 +341,10 @@ export class UnleashClient extends TinyEmitter {
                 IMPRESSION_EVENTS.IS_ENABLED,
                 toggle?.impressionData ?? undefined
             );
-            this.emit(EVENTS.IMPRESSION, event);
+            if (shouldEmitLocally) {
+                this.emit(EVENTS.IMPRESSION, event);
+            }
+            this.impressionEventsSender.send(event);
         }
 
         return enabled;
@@ -332,7 +359,9 @@ export class UnleashClient extends TinyEmitter {
             this.metrics.countVariant(toggleName, variant.name);
         }
         this.metrics.count(toggleName, enabled);
-        if (toggle?.impressionData || this.impressionDataAll) {
+        const shouldEmitLocally =
+            toggle?.impressionData || this.impressionDataAll;
+        if (shouldEmitLocally || this.sendImpressionEvents) {
             const event = this.eventsHandler.createImpressionEvent(
                 this.context,
                 enabled,
@@ -341,7 +370,10 @@ export class UnleashClient extends TinyEmitter {
                 toggle?.impressionData ?? undefined,
                 variant.name
             );
-            this.emit(EVENTS.IMPRESSION, event);
+            if (shouldEmitLocally) {
+                this.emit(EVENTS.IMPRESSION, event);
+            }
+            this.impressionEventsSender.send(event);
         }
         return { ...variant, feature_enabled: enabled };
     }

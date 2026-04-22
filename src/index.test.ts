@@ -2473,3 +2473,138 @@ describe('updateToggles', () => {
         expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 });
+
+describe('Impression events sender', () => {
+    const impressionBootstrap: IToggle[] = [
+        {
+            name: 'impression',
+            enabled: true,
+            variant: {
+                name: 'disabled',
+                enabled: false,
+                feature_enabled: true,
+            },
+            impressionData: true,
+        },
+    ];
+
+    const nonImpressionBootstrap: IToggle[] = [
+        {
+            name: 'no-impression',
+            enabled: true,
+            variant: {
+                name: 'disabled',
+                enabled: false,
+                feature_enabled: true,
+            },
+            impressionData: false,
+        },
+    ];
+
+    const findImpressionCall = (mock: FetchMock) =>
+        mock.mock.calls.find(([url]) => {
+            const asString =
+                typeof url === 'string'
+                    ? url
+                    : url instanceof URL
+                      ? url.toString()
+                      : (url as Request).url;
+            return asString.endsWith('/client/events');
+        });
+
+    const makeClient = (overrides: Partial<IConfig> = {}) =>
+        new UnleashClient({
+            url: 'http://localhost/test',
+            clientKey: '12',
+            appName: 'web',
+            bootstrap: impressionBootstrap,
+            ...overrides,
+        });
+
+    test('does not POST impression events when sendImpressionEvents is false (default)', async () => {
+        const client = makeClient();
+        await client.start();
+
+        client.isEnabled('impression');
+
+        expect(findImpressionCall(fetchMock)).toBeUndefined();
+        client.stop();
+    });
+
+    test('POSTs impression event to /client/events when sendImpressionEvents is true and impressionData is true', async () => {
+        const client = makeClient({ sendImpressionEvents: true });
+        await client.start();
+
+        client.isEnabled('impression');
+
+        const call = findImpressionCall(fetchMock);
+        expect(call).toBeDefined();
+        const [url, init] = call as [string, RequestInit];
+        expect(url).toEqual('http://localhost/test/client/events');
+        expect(init.method).toEqual('POST');
+        const body = JSON.parse(`${init.body}`);
+        expect(body.featureName).toEqual('impression');
+        expect(body.eventType).toEqual('isEnabled');
+        client.stop();
+    });
+
+    test('POSTs impression event on getVariant when sendImpressionEvents is true', async () => {
+        const client = makeClient({ sendImpressionEvents: true });
+        await client.start();
+
+        client.getVariant('impression');
+
+        const call = findImpressionCall(fetchMock);
+        expect(call).toBeDefined();
+        const [, init] = call as [string, RequestInit];
+        const body = JSON.parse(`${init.body}`);
+        expect(body.eventType).toEqual('getVariant');
+        client.stop();
+    });
+
+    test('POSTs impression events regardless of impressionData / impressionDataAll when sendImpressionEvents is true', async () => {
+        const client = makeClient({
+            bootstrap: nonImpressionBootstrap,
+            sendImpressionEvents: true,
+        });
+        await client.start();
+
+        client.isEnabled('no-impression');
+
+        expect(findImpressionCall(fetchMock)).toBeDefined();
+        client.stop();
+    });
+
+    test('does not emit local impression event when impressionData is false even with sendImpressionEvents enabled', async () => {
+        const client = makeClient({
+            bootstrap: nonImpressionBootstrap,
+            sendImpressionEvents: true,
+        });
+        await client.start();
+
+        const listener = jest.fn();
+        client.on(EVENTS.IMPRESSION, listener);
+
+        client.isEnabled('no-impression');
+
+        expect(listener).not.toHaveBeenCalled();
+        expect(findImpressionCall(fetchMock)).toBeDefined();
+        client.stop();
+    });
+
+    test('uses experimental.metricsUrl as base for /client/events when provided', async () => {
+        const client = makeClient({
+            sendImpressionEvents: true,
+            experimental: { metricsUrl: 'http://metrics.example/api' },
+        });
+        await client.start();
+
+        client.isEnabled('impression');
+
+        const call = findImpressionCall(fetchMock);
+        expect(call).toBeDefined();
+        const [url] = call as [string, RequestInit];
+        expect(url).toEqual('http://metrics.example/api/client/events');
+        client.stop();
+    });
+});
