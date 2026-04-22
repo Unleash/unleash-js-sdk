@@ -47,6 +47,29 @@ class EventsHandler {
             impressionData,
         };
     }
+
+    public createCustomEvent(
+        context: IContext,
+        eventName: string,
+        payload?: Record<string, unknown>
+    ) {
+        const event: {
+            eventType: string;
+            eventId: string;
+            eventName: string;
+            context: IContext;
+            payload?: Record<string, unknown>;
+        } = {
+            eventType: 'custom',
+            eventId: this.generateEventId(),
+            eventName,
+            context,
+        };
+        if (payload !== undefined) {
+            event.payload = payload;
+        }
+        return event;
+    }
 }
 
 export default EventsHandler;

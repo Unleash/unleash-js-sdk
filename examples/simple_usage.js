@@ -38,6 +38,8 @@ await client.updateContext({ userId: 'demo-user-456' });
 const enabled = client.isEnabled(featureName);
 console.log(`Feature "${featureName}" enabled after context update:`, enabled);
 
+client.emitCustomEvent('checkout_started', { cartValue: 42 });
+
 process.on('SIGINT', () => {
     client.stop();
     process.exit(0);

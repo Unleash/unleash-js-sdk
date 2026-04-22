@@ -17,10 +17,16 @@ import { EVENTS } from './events';
 jest.useFakeTimers();
 
 const fetchMock = fetch as FetchMock;
+const logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
 
 afterEach(() => {
     fetchMock.resetMocks();
     jest.clearAllTimers();
+    logSpy.mockClear();
+});
+
+afterAll(() => {
+    logSpy.mockRestore();
 });
 
 test('Should initialize unleash-client', () => {
@@ -2605,6 +2611,165 @@ describe('Impression events sender', () => {
         expect(call).toBeDefined();
         const [url] = call as [string, RequestInit];
         expect(url).toEqual('http://metrics.example/api/client/events');
+        client.stop();
+    });
+});
+
+describe('emitCustomEvent', () => {
+    const findEventsCall = (mock: FetchMock) =>
+        mock.mock.calls.find(([url]) => {
+            const asString =
+                typeof url === 'string'
+                    ? url
+                    : url instanceof URL
+                      ? url.toString()
+                      : (url as Request).url;
+            return asString.endsWith('/client/events');
+        });
+
+    const bootstrap: IToggle[] = [
+        {
+            name: 'any',
+            enabled: true,
+            variant: {
+                name: 'disabled',
+                enabled: false,
+                feature_enabled: true,
+            },
+            impressionData: false,
+        },
+    ];
+
+    const makeClient = (overrides: Partial<IConfig> = {}) =>
+        new UnleashClient({
+            url: 'http://localhost/test',
+            clientKey: '12',
+            appName: 'web',
+            bootstrap,
+            context: { userId: 'u-1' },
+            ...overrides,
+        });
+
+    test('emits CUSTOM event locally with context and payload', async () => {
+        const client = makeClient();
+        await client.start();
+
+        const listener = jest.fn();
+        client.on(EVENTS.CUSTOM, listener);
+
+        client.emitCustomEvent('checkout_started', { cartValue: 42 });
+
+        expect(listener).toHaveBeenCalledTimes(1);
+        const event = listener.mock.calls[0][0];
+        expect(event.eventType).toEqual('custom');
+        expect(event.eventName).toEqual('checkout_started');
+        expect(event.payload).toEqual({ cartValue: 42 });
+        expect(event.eventId).toEqual(expect.any(String));
+        expect(event.context).toMatchObject({
+            appName: 'web',
+            environment: 'default',
+            userId: 'u-1',
+        });
+        expect(event.context.sessionId).toEqual(expect.any(String));
+        client.stop();
+    });
+
+    test('omits payload when not provided', async () => {
+        const client = makeClient();
+        await client.start();
+
+        const listener = jest.fn();
+        client.on(EVENTS.CUSTOM, listener);
+
+        client.emitCustomEvent('page_view');
+
+        const event = listener.mock.calls[0][0];
+        expect(event.eventName).toEqual('page_view');
+        expect('payload' in event).toBe(false);
+        client.stop();
+    });
+
+    test('POSTs to /client/events when sendImpressionEvents is true', async () => {
+        const client = makeClient({ sendImpressionEvents: true });
+        await client.start();
+
+        client.emitCustomEvent('checkout_started', { cartValue: 42 });
+
+        const call = findEventsCall(fetchMock);
+        expect(call).toBeDefined();
+        const [url, init] = call as [string, RequestInit];
+        expect(url).toEqual('http://localhost/test/client/events');
+        expect(init.method).toEqual('POST');
+        const body = JSON.parse(`${init.body}`);
+        expect(body.eventType).toEqual('custom');
+        expect(body.eventName).toEqual('checkout_started');
+        expect(body.payload).toEqual({ cartValue: 42 });
+        expect(body.context).toMatchObject({ userId: 'u-1', appName: 'web' });
+        client.stop();
+    });
+
+    test('does not POST when sendImpressionEvents is false, still emits locally', async () => {
+        const client = makeClient();
+        await client.start();
+
+        const listener = jest.fn();
+        client.on(EVENTS.CUSTOM, listener);
+
+        client.emitCustomEvent('checkout_started');
+
+        expect(listener).toHaveBeenCalledTimes(1);
+        expect(findEventsCall(fetchMock)).toBeUndefined();
+        client.stop();
+    });
+
+    test('honors experimental.metricsUrl when sending', async () => {
+        const client = makeClient({
+            sendImpressionEvents: true,
+            experimental: { metricsUrl: 'http://metrics.example/api' },
+        });
+        await client.start();
+
+        client.emitCustomEvent('checkout_started');
+
+        const call = findEventsCall(fetchMock);
+        expect(call).toBeDefined();
+        const [url] = call as [string, RequestInit];
+        expect(url).toEqual('http://metrics.example/api/client/events');
+        client.stop();
+    });
+
+    test('ignores empty eventName (does not emit or POST)', async () => {
+        const errorSpy = jest
+            .spyOn(console, 'error')
+            .mockImplementation(() => undefined);
+        const client = makeClient({ sendImpressionEvents: true });
+        await client.start();
+
+        const listener = jest.fn();
+        client.on(EVENTS.CUSTOM, listener);
+
+        client.emitCustomEvent('');
+
+        expect(listener).not.toHaveBeenCalled();
+        expect(findEventsCall(fetchMock)).toBeUndefined();
+        client.stop();
+        errorSpy.mockRestore();
+    });
+
+    test('reflects latest context after updateContext', async () => {
+        fetchMock.mockResponseOnce(JSON.stringify(data));
+        const client = makeClient();
+        await client.start();
+        await client.updateContext({ userId: 'u-2' });
+
+        const listener = jest.fn();
+        client.on(EVENTS.CUSTOM, listener);
+
+        client.emitCustomEvent('checkout_started');
+
+        expect(listener.mock.calls[0][0].context).toMatchObject({
+            userId: 'u-2',
+        });
         client.stop();
     });
 });

@@ -1,6 +1,6 @@
 import { TinyEmitter } from 'tiny-emitter';
 import Metrics from './metrics';
-import ImpressionEventsSender from './impression-events-sender';
+import EventsSender from './events-sender';
 import type IStorageProvider from './storage-provider';
 import InMemoryStorageProvider from './storage-provider-inmemory';
 import LocalStorageProvider from './storage-provider-local';
@@ -151,7 +151,7 @@ export class UnleashClient extends TinyEmitter {
     private clientKey: string;
     private etag = '';
     private metrics: Metrics;
-    private impressionEventsSender: ImpressionEventsSender;
+    private eventsSender: EventsSender;
     private metricRegistry: InMemoryMetricRegistry;
     public impactMetrics: MetricsAPI;
     private ready: Promise<void>;
@@ -305,7 +305,7 @@ export class UnleashClient extends TinyEmitter {
             metricRegistry: this.metricRegistry,
         });
 
-        this.impressionEventsSender = new ImpressionEventsSender({
+        this.eventsSender = new EventsSender({
             onError: (err) =>
                 this.emit(EVENTS.ERROR, {
                     type: 'impression-events',
@@ -344,7 +344,7 @@ export class UnleashClient extends TinyEmitter {
             if (shouldEmitLocally) {
                 this.emit(EVENTS.IMPRESSION, event);
             }
-            this.impressionEventsSender.send(event);
+            this.eventsSender.send(event);
         }
 
         return enabled;
@@ -373,9 +373,28 @@ export class UnleashClient extends TinyEmitter {
             if (shouldEmitLocally) {
                 this.emit(EVENTS.IMPRESSION, event);
             }
-            this.impressionEventsSender.send(event);
+            this.eventsSender.send(event);
         }
         return { ...variant, feature_enabled: enabled };
+    }
+
+    public emitCustomEvent(
+        eventName: string,
+        payload?: Record<string, unknown>
+    ): void {
+        if (typeof eventName !== 'string' || eventName.length === 0) {
+            console.error(
+                'Unleash: emitCustomEvent requires a non-empty eventName'
+            );
+            return;
+        }
+        const event = this.eventsHandler.createCustomEvent(
+            this.context,
+            eventName,
+            payload
+        );
+        this.emit(EVENTS.CUSTOM, event);
+        this.eventsSender.send(event);
     }
 
     public async updateToggles() {
