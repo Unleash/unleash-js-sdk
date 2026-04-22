@@ -39,7 +39,7 @@ test('does not POST when disabled', async () => {
         connectionId: 'conn-1',
     });
 
-    await sender.send(exampleEvent);
+    await sender.send([exampleEvent]);
 
     expect(fetchMock.mock.calls.length).toEqual(0);
 });
@@ -55,7 +55,7 @@ test('POSTs event to /client/events with correct url, method, headers and body',
         connectionId: 'conn-1',
     });
 
-    await sender.send(exampleEvent);
+    await sender.send([exampleEvent]);
 
     expect(fetchMock.mock.calls.length).toEqual(1);
 
@@ -71,8 +71,24 @@ test('POSTs event to /client/events with correct url, method, headers and body',
         'unleash-connection-id': 'conn-1',
     });
 
-    const body = parseRequestBodyWithType<typeof exampleEvent>(request);
-    expect(body).toEqual(exampleEvent);
+    const body = parseRequestBodyWithType<Array<typeof exampleEvent>>(request);
+    expect(body).toEqual([exampleEvent]);
+});
+
+test('does not POST when given an empty array', async () => {
+    const sender = new EventsSender({
+        onError: console.error,
+        appName: 'test',
+        url: 'http://localhost:3000/api',
+        clientKey: '123',
+        fetch: fetchMock,
+        headerName: 'Authorization',
+        connectionId: 'conn-1',
+    });
+
+    await sender.send([]);
+
+    expect(fetchMock.mock.calls.length).toEqual(0);
 });
 
 test('honors custom auth header name', async () => {
@@ -86,7 +102,7 @@ test('honors custom auth header name', async () => {
         connectionId: 'conn-1',
     });
 
-    await sender.send(exampleEvent);
+    await sender.send([exampleEvent]);
 
     const request = getTypeSafeRequest(fetchMock);
     expect(request.headers).toMatchObject({ notauthorization: '123' });
@@ -110,7 +126,7 @@ test('calls onError when fetch rejects', async () => {
         connectionId: 'conn-1',
     });
 
-    await sender.send(exampleEvent);
+    await sender.send([exampleEvent]);
 
     expect(onError).toHaveBeenCalledTimes(1);
     expect((onError.mock.calls[0][0] as Error).message).toEqual('network down');

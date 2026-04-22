@@ -56,24 +56,24 @@ export default class EventsSender {
         });
     }
 
-    public async send(event: unknown): Promise<void> {
-        if (this.disabled) {
+    public async send(events: unknown[]): Promise<void> {
+        if (this.disabled || events.length === 0) {
             return;
         }
 
         const url = `${this.url}/client/events`;
 
         try {
-            console.log('Unleash: POST', url, event);
+            console.log('Unleash: POST', url, events);
             await this.fetch(url, {
                 cache: 'no-cache',
                 method: 'POST',
                 headers: this.getHeaders(),
-                body: JSON.stringify(event),
+                body: JSON.stringify(events),
                 keepalive: true,
             });
         } catch (e) {
-            console.error('Unleash: unable to send event', e);
+            console.error('Unleash: unable to send events', e);
             this.onError(e);
         }
     }

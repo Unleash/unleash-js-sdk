@@ -2549,8 +2549,10 @@ describe('Impression events sender', () => {
         expect(url).toEqual('http://localhost/test/client/events');
         expect(init.method).toEqual('POST');
         const body = JSON.parse(`${init.body}`);
-        expect(body.featureName).toEqual('impression');
-        expect(body.eventType).toEqual('isEnabled');
+        expect(Array.isArray(body)).toBe(true);
+        expect(body).toHaveLength(1);
+        expect(body[0].featureName).toEqual('impression');
+        expect(body[0].eventType).toEqual('isEnabled');
         client.stop();
     });
 
@@ -2564,7 +2566,8 @@ describe('Impression events sender', () => {
         expect(call).toBeDefined();
         const [, init] = call as [string, RequestInit];
         const body = JSON.parse(`${init.body}`);
-        expect(body.eventType).toEqual('getVariant');
+        expect(Array.isArray(body)).toBe(true);
+        expect(body[0].eventType).toEqual('getVariant');
         client.stop();
     });
 
@@ -2701,10 +2704,15 @@ describe('emitCustomEvent', () => {
         expect(url).toEqual('http://localhost/test/client/events');
         expect(init.method).toEqual('POST');
         const body = JSON.parse(`${init.body}`);
-        expect(body.eventType).toEqual('custom');
-        expect(body.eventName).toEqual('checkout_started');
-        expect(body.payload).toEqual({ cartValue: 42 });
-        expect(body.context).toMatchObject({ userId: 'u-1', appName: 'web' });
+        expect(Array.isArray(body)).toBe(true);
+        expect(body).toHaveLength(1);
+        expect(body[0].eventType).toEqual('custom');
+        expect(body[0].eventName).toEqual('checkout_started');
+        expect(body[0].payload).toEqual({ cartValue: 42 });
+        expect(body[0].context).toMatchObject({
+            userId: 'u-1',
+            appName: 'web',
+        });
         client.stop();
     });
 

@@ -344,7 +344,7 @@ export class UnleashClient extends TinyEmitter {
             if (shouldEmitLocally) {
                 this.emit(EVENTS.IMPRESSION, event);
             }
-            this.eventsSender.send(event);
+            this.eventsSender.send([event]);
         }
 
         return enabled;
@@ -373,7 +373,7 @@ export class UnleashClient extends TinyEmitter {
             if (shouldEmitLocally) {
                 this.emit(EVENTS.IMPRESSION, event);
             }
-            this.eventsSender.send(event);
+            this.eventsSender.send([event]);
         }
         return { ...variant, feature_enabled: enabled };
     }
@@ -394,7 +394,7 @@ export class UnleashClient extends TinyEmitter {
             payload
         );
         this.emit(EVENTS.CUSTOM, event);
-        this.eventsSender.send(event);
+        this.eventsSender.send([event]);
     }
 
     public async updateToggles() {
