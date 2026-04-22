@@ -40,7 +40,7 @@
   "homepage": "https://github.com/unleash/unleash-js-sdk#readme",
   "dependencies": {
     "tiny-emitter": "^2.1.0",
-    "uuid": "^9.0.1"
+    "uuid": "^14.0.0"
   },
   "devDependencies": {
     "@babel/runtime": "^7.23.1",
