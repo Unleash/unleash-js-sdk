@@ -65,13 +65,16 @@ export default class EventsSender {
 
         try {
             console.log('Unleash: POST', url, events);
-            await this.fetch(url, {
+            const response = await this.fetch(url, {
                 cache: 'no-cache',
                 method: 'POST',
                 headers: this.getHeaders(),
                 body: JSON.stringify(events),
                 keepalive: true,
             });
+            console.log(
+                `Unleash: POST ${url} -> ${response.status} ${response.statusText}`
+            );
         } catch (e) {
             console.error('Unleash: unable to send events', e);
             this.onError(e);
