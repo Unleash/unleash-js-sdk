@@ -1,6 +1,9 @@
 import { IContext } from '.';
 import { v4 as uuidv4 } from 'uuid';
 
+const formatTimestamp = (date: Date): string =>
+    date.toISOString().replace('T', ' ').replace('Z', '');
+
 class EventsHandler {
     private generateEventId() {
         return uuidv4();
@@ -41,7 +44,7 @@ class EventsHandler {
         return {
             eventType,
             eventId: this.generateEventId(),
-            timestamp: new Date().toISOString(),
+            timestamp: formatTimestamp(new Date()),
             context,
             enabled,
             featureName,
@@ -64,7 +67,7 @@ class EventsHandler {
         } = {
             eventType: 'custom',
             eventId: this.generateEventId(),
-            timestamp: new Date().toISOString(),
+            timestamp: formatTimestamp(new Date()),
             eventName,
             context,
         };

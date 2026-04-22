@@ -2554,7 +2554,9 @@ describe('Impression events sender', () => {
         expect(body[0].featureName).toEqual('impression');
         expect(body[0].eventType).toEqual('isEnabled');
         expect(body[0].timestamp).toEqual(expect.any(String));
-        expect(Number.isFinite(Date.parse(body[0].timestamp))).toBe(true);
+        expect(body[0].timestamp).toMatch(
+            /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}$/
+        );
         client.stop();
     });
 
@@ -2671,7 +2673,9 @@ describe('emitCustomEvent', () => {
         expect(event.payload).toEqual({ cartValue: 42 });
         expect(event.eventId).toEqual(expect.any(String));
         expect(event.timestamp).toEqual(expect.any(String));
-        expect(Number.isFinite(Date.parse(event.timestamp))).toBe(true);
+        expect(event.timestamp).toMatch(
+            /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}$/
+        );
         expect(event.context).toMatchObject({
             appName: 'web',
             environment: 'default',
