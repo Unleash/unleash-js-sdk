@@ -41,6 +41,7 @@ class EventsHandler {
         return {
             eventType,
             eventId: this.generateEventId(),
+            timestamp: new Date().toISOString(),
             context,
             enabled,
             featureName,
@@ -56,12 +57,14 @@ class EventsHandler {
         const event: {
             eventType: string;
             eventId: string;
+            timestamp: string;
             eventName: string;
             context: IContext;
             payload?: Record<string, unknown>;
         } = {
             eventType: 'custom',
             eventId: this.generateEventId(),
+            timestamp: new Date().toISOString(),
             eventName,
             context,
         };

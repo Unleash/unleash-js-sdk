@@ -2553,6 +2553,8 @@ describe('Impression events sender', () => {
         expect(body).toHaveLength(1);
         expect(body[0].featureName).toEqual('impression');
         expect(body[0].eventType).toEqual('isEnabled');
+        expect(body[0].timestamp).toEqual(expect.any(String));
+        expect(Number.isFinite(Date.parse(body[0].timestamp))).toBe(true);
         client.stop();
     });
 
@@ -2668,6 +2670,8 @@ describe('emitCustomEvent', () => {
         expect(event.eventName).toEqual('checkout_started');
         expect(event.payload).toEqual({ cartValue: 42 });
         expect(event.eventId).toEqual(expect.any(String));
+        expect(event.timestamp).toEqual(expect.any(String));
+        expect(Number.isFinite(Date.parse(event.timestamp))).toBe(true);
         expect(event.context).toMatchObject({
             appName: 'web',
             environment: 'default',
