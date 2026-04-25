@@ -39,8 +39,7 @@
   },
   "homepage": "https://github.com/unleash/unleash-js-sdk#readme",
   "dependencies": {
-    "tiny-emitter": "^2.1.0",
-    "uuid": "^9.0.1"
+    "tiny-emitter": "^2.1.0"
   },
   "devDependencies": {
     "@babel/runtime": "^7.23.1",
@@ -50,7 +49,6 @@
     "@rollup/plugin-terser": "^0.4.4",
     "@rollup/plugin-typescript": "^11.1.5",
     "@types/jest": "^29.5.5",
-    "@types/uuid": "^9.0.5",
     "@typescript-eslint/eslint-plugin": "^6.7.5",
     "@typescript-eslint/parser": "^6.7.5",
     "eslint": "^8.51.0",
