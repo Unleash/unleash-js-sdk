@@ -8,7 +8,6 @@
  * Callers should treat fallback-generated values as best-effort unique identifiers, not as
  * security-sensitive or globally uniqueness-guaranteed tokens.
  */
-
 export const uuidv4 = (): string => {
     if (typeof crypto.randomUUID === 'function') {
         return crypto.randomUUID();
