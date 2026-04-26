@@ -1,5 +1,5 @@
 import { IContext } from '.';
-import { v4 as uuidv4 } from 'uuid';
+import { uuidv4 } from './uuidv4';
 
 class EventsHandler {
     private generateEventId() {
