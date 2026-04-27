@@ -1,6 +1,9 @@
 import { IContext } from '.';
 import { uuidv4 } from './uuidv4';
 
+const formatTimestamp = (date: Date): string =>
+    date.toISOString().replace('T', ' ').replace('Z', '');
+
 class EventsHandler {
     private generateEventId() {
         return uuidv4();
@@ -41,11 +44,37 @@ class EventsHandler {
         return {
             eventType,
             eventId: this.generateEventId(),
+            timestamp: formatTimestamp(new Date()),
             context,
             enabled,
             featureName,
             impressionData,
         };
+    }
+
+    public createCustomEvent(
+        context: IContext,
+        eventName: string,
+        payload?: Record<string, unknown>
+    ) {
+        const event: {
+            eventType: string;
+            eventId: string;
+            timestamp: string;
+            eventName: string;
+            context: IContext;
+            payload?: Record<string, unknown>;
+        } = {
+            eventType: 'custom',
+            eventId: this.generateEventId(),
+            timestamp: formatTimestamp(new Date()),
+            eventName,
+            context,
+        };
+        if (payload !== undefined) {
+            event.payload = payload;
+        }
+        return event;
     }
 }
 
