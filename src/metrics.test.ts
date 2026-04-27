@@ -1,6 +1,10 @@
 import { FetchMock } from 'jest-fetch-mock';
 import Metrics from './metrics';
-import { getTypeSafeRequest, parseRequestBodyWithType } from './test';
+import {
+    getTypeSafeRequest,
+    getTypeSafeRequestUrl,
+    parseRequestBodyWithType,
+} from './test';
 import { InMemoryMetricRegistry } from './impact-metrics/metric-types';
 
 jest.useFakeTimers();
@@ -335,6 +339,28 @@ describe('Custom headers for metrics', () => {
             'unleash-connection-id': '123',
         });
     });
+});
+
+test('should not construct metrics URL with double slashes', async () => {
+    const metrics = new Metrics({
+        onError: console.error,
+        appName: 'test',
+        metricsInterval: 0,
+        disableMetrics: false,
+        url: 'http://localhost:3000/api/frontend/',
+        clientKey: '123',
+        fetch: fetchMock,
+        headerName: 'Authorization',
+        metricsIntervalInitial: 0,
+        connectionId: '123',
+    });
+
+    metrics.count('foo', true);
+    await metrics.sendMetrics();
+
+    const url = getTypeSafeRequestUrl(fetchMock);
+    expect(url).toBe('http://localhost:3000/api/frontend/client/metrics');
+    expect(url).not.toBe('http://localhost:3000/api/frontend//client/metrics');
 });
 
 describe('Flush metrics on page hidden', () => {
