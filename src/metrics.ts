@@ -149,7 +149,7 @@ export default class Metrics {
     }: { fireAndForget?: boolean } = {}): Promise<void> {
         /* istanbul ignore next if */
 
-        const url = `${this.url}/client/metrics`;
+        const url = `${this.url.toString().replace(/\/$/, '')}/client/metrics`;
         const payload = this.getPayload();
 
         if (
