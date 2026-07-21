@@ -1095,6 +1095,32 @@ test('Updating context should wait on asynchronous start', async () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
 });
 
+test('Should not update appName or environment via updateContext', async () => {
+    fetchMock.mockResponses(
+        [JSON.stringify(data), { status: 200 }],
+        [JSON.stringify(data), { status: 304 }]
+    );
+    const config: IConfig = {
+        url: 'http://localhost/test',
+        clientKey: '12',
+        appName: 'web',
+        environment: 'prod',
+    };
+    const client = new UnleashClient(config);
+    await client.updateContext({
+        userId: '123',
+        // appName and environment are static, but a JS caller can still
+        // force them into the mutable context object
+        appName: 'other-app',
+        environment: 'dev',
+    } as IMutableContext);
+
+    const context = client.getContext();
+    expect(context.appName).toEqual('web');
+    expect(context.environment).toEqual('prod');
+    expect(context.userId).toEqual('123');
+});
+
 test('Should not replace sessionId when updating context', async () => {
     fetchMock.mockResponses(
         [JSON.stringify(data), { status: 200 }],

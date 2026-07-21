@@ -376,7 +376,12 @@ export class UnleashClient extends TinyEmitter {
             appName: this.context.appName,
             sessionId: this.context.sessionId,
         };
-        this.context = { ...staticContext, ...context };
+        this.context = {
+            ...staticContext,
+            ...context,
+            appName: staticContext.appName,
+            environment: staticContext.environment,
+        };
 
         await this.updateToggles();
     }
