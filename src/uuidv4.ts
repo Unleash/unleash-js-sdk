@@ -9,8 +9,8 @@
  * security-sensitive or globally uniqueness-guaranteed tokens.
  */
 export const uuidv4 = (): string => {
-    if (typeof crypto.randomUUID === 'function') {
-        return crypto.randomUUID();
+    if (typeof globalThis !== 'undefined' && globalThis.crypto?.randomUUID) {
+        return globalThis.crypto.randomUUID();
     }
 
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
