@@ -1095,6 +1095,32 @@ test('Updating context should wait on asynchronous start', async () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
 });
 
+test('Should allow updating appName and environment without a warning', async () => {
+    fetchMock.mockResponses(
+        [JSON.stringify(data), { status: 200 }],
+        [JSON.stringify(data), { status: 304 }]
+    );
+    const config: IConfig = {
+        url: 'http://localhost/test',
+        clientKey: '12',
+        appName: 'web',
+        environment: 'prod',
+    };
+    const client = new UnleashClient(config);
+    const warn = jest.fn();
+    client.on(EVENTS.WARN, warn);
+    await client.updateContext({
+        userId: '123',
+        appName: 'web-v2',
+        environment: 'staging',
+    } as IMutableContext);
+
+    const context = client.getContext();
+    expect(context.appName).toEqual('web-v2');
+    expect(context.environment).toEqual('staging');
+    expect(warn).not.toHaveBeenCalled();
+});
+
 test('Should not replace sessionId when updating context', async () => {
     fetchMock.mockResponses(
         [JSON.stringify(data), { status: 200 }],
