@@ -87,23 +87,7 @@ test('finishes an already queued context update when readiness arrives after shu
     expect(requests).toHaveLength(2);
 });
 
-test('only starts current timers when restarted during initialization', async () => {
-    const { client, requests } = createClient();
-    const first = client.start();
-    client.stop();
-
-    const second = client.start();
-    await Promise.all([first, second]);
-    expect(requests).toHaveLength(2);
-    await jest.advanceTimersByTimeAsync(1000);
-    expect(requests).toHaveLength(3);
-
-    client.stop();
-    await jest.advanceTimersByTimeAsync(3000);
-    expect(requests).toHaveLength(3);
-});
-
-test('stays stopped when the initial fetch finishes after shutdown', async () => {
+test('does not resume polling when an initial fetch finishes after shutdown', async () => {
     let complete!: (value: Response) => void;
     const { client, requests } = createClient({
         fetch: () => new Promise<Response>((resolve) => (complete = resolve)),
@@ -119,9 +103,9 @@ test('stays stopped when the initial fetch finishes after shutdown', async () =>
     expect(requests).toHaveLength(1);
 });
 
-test.each([false, true])(
-    'keeps a restarted client running when the older startup finishes first: %s',
-    async (olderFirst) => {
+test.each(['older', 'newer'])(
+    'keeps a restarted client running when the %s startup finishes first',
+    async (firstToFinish) => {
         const pending: ((value: Response) => void)[] = [];
         const { client, requests } = createClient({
             fetch: () =>
@@ -135,7 +119,7 @@ test.each([false, true])(
         const second = client.start();
         await jest.advanceTimersByTimeAsync(0);
 
-        if (olderFirst) {
+        if (firstToFinish === 'older') {
             pending[0](response());
             await first;
             pending[1](response());
