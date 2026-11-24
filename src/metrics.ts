@@ -96,7 +96,7 @@ export default class Metrics {
     }
 
     public start() {
-        if (this.disabled) {
+        if (this.disabled || this.timer || this.flushMetricsOnPageUnload) {
             return false;
         }
 

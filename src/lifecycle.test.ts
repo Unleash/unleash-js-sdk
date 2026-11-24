@@ -110,31 +110,44 @@ test('stays stopped when the initial fetch finishes after shutdown', async () =>
     expect(requests).toHaveLength(1);
 });
 
-test('keeps a restarted client running when an older startup finishes', async () => {
-    const pending: ((value: Response) => void)[] = [];
-    const { client, requests } = createClient({
-        fetch: () =>
-            pending.length < 2
-                ? new Promise<Response>((resolve) => pending.push(resolve))
-                : response(),
-    });
-    const first = client.start();
-    await jest.advanceTimersByTimeAsync(0);
-    client.stop();
-    const second = client.start();
-    await jest.advanceTimersByTimeAsync(0);
+test.each([false, true])(
+    'keeps a restarted client running when the older startup finishes first: %s',
+    async (olderFirst) => {
+        const pending: ((value: Response) => void)[] = [];
+        const { client, requests } = createClient({
+            fetch: () =>
+                pending.length < 2
+                    ? new Promise<Response>((resolve) => pending.push(resolve))
+                    : response(),
+        });
+        const first = client.start();
+        await jest.advanceTimersByTimeAsync(0);
+        client.stop();
+        const second = client.start();
+        await jest.advanceTimersByTimeAsync(0);
 
-    pending[1](response());
-    await second;
-    pending[0](response());
-    await first;
-    await jest.advanceTimersByTimeAsync(1000);
-    expect(requests).toHaveLength(3);
+        if (olderFirst) {
+            pending[0](response());
+            await first;
+            const overlapping = client.start();
+            await jest.advanceTimersByTimeAsync(0);
+            expect(requests).toHaveLength(2);
+            pending[1](response());
+            await Promise.all([second, overlapping]);
+        } else {
+            pending[1](response());
+            await second;
+            pending[0](response());
+            await first;
+        }
+        await jest.advanceTimersByTimeAsync(1000);
+        expect(requests).toHaveLength(3);
 
-    client.stop();
-    await jest.advanceTimersByTimeAsync(3000);
-    expect(requests).toHaveLength(3);
-});
+        client.stop();
+        await jest.advanceTimersByTimeAsync(3000);
+        expect(requests).toHaveLength(3);
+    }
+);
 
 test('honors shutdown from a ready listener', async () => {
     const { client, requests } = createClient();
@@ -183,4 +196,86 @@ test('uses the new metrics delay after restarting', async () => {
     const count = requests.length;
     await jest.advanceTimersByTimeAsync(3000);
     expect(requests).toHaveLength(count);
+});
+
+test.each([{ disableRefresh: true }, { refreshInterval: 0 }])(
+    'refreshes flags on sequential starts with %j',
+    async (config) => {
+        let enabled = false;
+        const { client } = createClient({
+            ...config,
+            fetch: async () =>
+                new Response(
+                    JSON.stringify({
+                        toggles: [
+                            {
+                                name: 'example',
+                                enabled,
+                                impressionData: false,
+                                variant: { name: 'disabled', enabled: false },
+                            },
+                        ],
+                    })
+                ),
+        });
+        await client.start();
+        expect(client.isEnabled('example')).toBe(false);
+
+        enabled = true;
+        await client.start();
+
+        expect(client.isEnabled('example')).toBe(true);
+    }
+);
+
+test('preserves one metrics schedule across sequential starts', async () => {
+    const { client, requests } = createClient({
+        disableRefresh: true,
+        disableMetrics: false,
+    });
+    await client.start();
+    client.isEnabled('example');
+    await jest.advanceTimersByTimeAsync(1000);
+
+    await client.start();
+    expect(jest.getTimerCount()).toBe(1);
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(
+        requests.filter((url) => url.endsWith('/client/metrics'))
+    ).toHaveLength(1);
+
+    await client.start();
+    expect(jest.getTimerCount()).toBe(1);
+    client.stop();
+    expect(jest.getTimerCount()).toBe(0);
+});
+
+test('removes the page-hidden metrics listener after sequential starts', async () => {
+    const { client, requests } = createClient({
+        disableRefresh: true,
+        disableMetrics: false,
+        metricsInterval: 0,
+    });
+    await client.start();
+    await client.start();
+    client.stop();
+    client.isEnabled('example');
+    const count = requests.length;
+    const visibility = Object.getOwnPropertyDescriptor(
+        document,
+        'visibilityState'
+    );
+
+    try {
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'hidden',
+        });
+        document.dispatchEvent(new Event('visibilitychange'));
+        expect(requests).toHaveLength(count);
+    } finally {
+        if (visibility)
+            Object.defineProperty(document, 'visibilityState', visibility);
+        else Reflect.deleteProperty(document, 'visibilityState');
+    }
 });
