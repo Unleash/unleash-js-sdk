@@ -172,6 +172,8 @@ You may provide a custom session id via the "context". If you do not provide a s
 ### Stop the SDK
 You can stop the Unleash client by calling the `stop` method. Once the client has been stopped, it will no longer check for updates or send metrics to the server.
 
+Requests already in flight may still finish.
+
 A stopped client _can_ be restarted.
 
 ```js

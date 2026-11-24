@@ -2480,22 +2480,36 @@ describe('updateToggles', () => {
     });
 
     it('should wait for client readiness before the toggles update', async () => {
-        const config: IConfig = {
+        let complete!: (body: string) => void;
+        let notifyFetch!: () => void;
+        const fetching = new Promise<void>(
+            (resolve) => (notifyFetch = resolve)
+        );
+        fetchMock.mockResponseOnce(
+            () =>
+                new Promise<string>((resolve) => {
+                    complete = resolve;
+                    notifyFetch();
+                })
+        );
+        fetchMock.mockResponseOnce(JSON.stringify(data));
+        const client = new UnleashClient({
             url: 'http://localhost/test',
             clientKey: '12',
             appName: 'web',
             refreshInterval: 0,
-        };
-        const client = new UnleashClient(config);
+            storageProvider: new InMemoryStorageProvider(),
+        });
 
-        client.start();
-
-        client.updateToggles();
-
-        expect(fetchMock).not.toHaveBeenCalled();
-
-        client.emit(EVENTS.READY);
-
+        const starting = client.start();
+        const updating = client.updateToggles();
+        await fetching;
         expect(fetchMock).toHaveBeenCalledTimes(1);
+
+        complete(JSON.stringify({ toggles: [] }));
+        await Promise.all([starting, updating]);
+
+        expect(client.isEnabled('simpleToggle')).toBe(true);
+        client.stop();
     });
 });

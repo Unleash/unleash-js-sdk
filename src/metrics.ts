@@ -107,7 +107,7 @@ export default class Metrics {
             this.metricsInterval > 0
         ) {
             if (this.metricsIntervalInitial > 0) {
-                setTimeout(() => {
+                this.timer = setTimeout(() => {
                     this.startTimer();
                     this.sendMetrics();
                 }, this.metricsIntervalInitial);
