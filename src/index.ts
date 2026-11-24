@@ -162,8 +162,8 @@ export class UnleashClient extends TinyEmitter {
     private readyEventEmitted = false;
     private fetchedFromServer = false;
     private usePOSTrequests = false;
-    private startPromise?: Promise<void>;
-    private startId = 0;
+    private started = false;
+    private stopCount = 0;
     private sdkState: SdkState;
     private lastError: any;
     private experimental: IExperimentalConfig;
@@ -350,12 +350,16 @@ export class UnleashClient extends TinyEmitter {
     public async updateToggles() {
         if (this.timerRef || this.fetchedFromServer) {
             await this.fetchToggles();
-        } else if (this.startPromise) {
-            const startId = this.startId;
-            await this.startPromise;
-            if (this.startId === startId) {
-                await this.fetchToggles();
-            }
+        } else if (this.started) {
+            await new Promise<void>((resolve) => {
+                const listener = () => {
+                    this.fetchToggles().then(() => {
+                        this.off(EVENTS.READY, listener);
+                        resolve();
+                    });
+                };
+                this.once(EVENTS.READY, listener);
+            });
         }
     }
 
@@ -427,44 +431,30 @@ export class UnleashClient extends TinyEmitter {
         this.emit(EVENTS.INIT);
     }
 
-    public start(): Promise<void> {
+    public async start(): Promise<void> {
+        this.started = true;
+        const stopCount = this.stopCount;
         if (this.timerRef) {
             console.error(
                 'Unleash SDK has already started, if you want to restart the SDK you should call client.stop() before starting again.'
             );
-            return Promise.resolve();
+            return;
         }
-        if (!this.startPromise) {
-            this.startPromise = this.startClient(++this.startId);
-        }
-        return this.startPromise;
-    }
-
-    private async startClient(startId: number): Promise<void> {
-        try {
-            await this.ready;
-            if (this.startId !== startId) {
-                return;
-            }
+        await this.ready;
+        if (this.stopCount === stopCount) {
             this.metrics.start();
-            await this.initialFetchToggles();
+        }
+        const interval = this.refreshInterval;
 
-            if (this.startId === startId && this.refreshInterval > 0) {
-                this.timerRef = setInterval(
-                    () => this.fetchToggles(),
-                    this.refreshInterval
-                );
-            }
-        } finally {
-            if (this.startId === startId) {
-                this.startPromise = undefined;
-            }
+        await this.initialFetchToggles();
+
+        if (this.stopCount === stopCount && interval > 0 && !this.timerRef) {
+            this.timerRef = setInterval(() => this.fetchToggles(), interval);
         }
     }
 
     public stop(): void {
-        this.startPromise = undefined;
-        this.startId++;
+        this.stopCount++;
         if (this.timerRef) {
             clearInterval(this.timerRef);
             this.timerRef = undefined;

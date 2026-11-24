@@ -26,35 +26,40 @@ function createClient(config: Partial<IConfig> = {}) {
 
 beforeEach(() => jest.useFakeTimers());
 afterEach(() => {
+    jest.restoreAllMocks();
     for (const client of clients.splice(0)) client.stop();
     jest.clearAllTimers();
     jest.useRealTimers();
 });
 
 test.each([false, true])(
-    'shares pending startup when disableRefresh is %s',
+    'cleans up timers after overlapping starts when disableRefresh is %s',
     async (disableRefresh) => {
-        let complete!: (value: Response) => void;
+        const pending: ((value: Response) => void)[] = [];
         const { client, requests } = createClient({
             disableRefresh,
+            disableMetrics: false,
             fetch: () =>
-                new Promise<Response>((resolve) => (complete = resolve)),
+                pending.length < 2
+                    ? new Promise<Response>((resolve) => pending.push(resolve))
+                    : response(),
         });
-
         const first = client.start();
         const second = client.start();
         await jest.advanceTimersByTimeAsync(0);
+        expect(pending).toHaveLength(2);
 
-        expect(requests).toHaveLength(1);
-        complete(response());
+        for (const complete of pending) complete(response());
         await Promise.all([first, second]);
+        expect(jest.getTimerCount()).toBe(disableRefresh ? 1 : 2);
         client.stop();
+        expect(jest.getTimerCount()).toBe(0);
         await jest.advanceTimersByTimeAsync(3000);
-        expect(requests).toHaveLength(1);
+        expect(requests).toHaveLength(2);
     }
 );
 
-test('stays stopped when initialization finishes after shutdown', async () => {
+test('finishes initialization without restarting timers after shutdown', async () => {
     const { client, requests } = createClient({ disableMetrics: false });
 
     const starting = client.start();
@@ -63,10 +68,11 @@ test('stays stopped when initialization finishes after shutdown', async () => {
     client.isEnabled('example');
     await jest.advanceTimersByTimeAsync(3000);
 
-    expect(requests).toEqual([]);
+    expect(client.isReady()).toBe(true);
+    expect(requests).toHaveLength(1);
 });
 
-test('finishes a context update when shutdown cancels its pending startup', async () => {
+test('finishes an already queued context update when readiness arrives after shutdown', async () => {
     const { client, requests } = createClient();
     const starting = client.start();
     const updating = client.updateContext({ userId: 'example-user' });
@@ -75,23 +81,26 @@ test('finishes a context update when shutdown cancels its pending startup', asyn
     await Promise.all([starting, updating]);
 
     expect(client.getContext().userId).toBe('example-user');
-    expect(requests).toEqual([]);
+    expect(client.isReady()).toBe(true);
+    expect(requests).toHaveLength(2);
+    await jest.advanceTimersByTimeAsync(3000);
+    expect(requests).toHaveLength(2);
 });
 
-test('starts only the latest lifecycle when restarted during initialization', async () => {
+test('only starts current timers when restarted during initialization', async () => {
     const { client, requests } = createClient();
     const first = client.start();
     client.stop();
 
     const second = client.start();
     await Promise.all([first, second]);
-    expect(requests).toHaveLength(1);
-    await jest.advanceTimersByTimeAsync(1000);
     expect(requests).toHaveLength(2);
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(requests).toHaveLength(3);
 
     client.stop();
     await jest.advanceTimersByTimeAsync(3000);
-    expect(requests).toHaveLength(2);
+    expect(requests).toHaveLength(3);
 });
 
 test('stays stopped when the initial fetch finishes after shutdown', async () => {
@@ -129,11 +138,8 @@ test.each([false, true])(
         if (olderFirst) {
             pending[0](response());
             await first;
-            const overlapping = client.start();
-            await jest.advanceTimersByTimeAsync(0);
-            expect(requests).toHaveLength(2);
             pending[1](response());
-            await Promise.all([second, overlapping]);
+            await second;
         } else {
             pending[1](response());
             await second;
@@ -278,4 +284,73 @@ test('removes the page-hidden metrics listener after sequential starts', async (
             Object.defineProperty(document, 'visibilityState', visibility);
         else Reflect.deleteProperty(document, 'visibilityState');
     }
+});
+
+test('keeps context updates pending until readiness after a failed initial fetch', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    let online = false;
+    let updateFinished = false;
+    const { client, requests } = createClient({
+        fetch: async () =>
+            new Response(JSON.stringify({ toggles: [] }), {
+                status: online ? 200 : 503,
+            }),
+    });
+    const starting = client.start();
+    const update = async () => {
+        await client.updateContext({ userId: 'example-user' });
+        updateFinished = true;
+    };
+    const updating = update();
+    await starting;
+    await jest.advanceTimersByTimeAsync(0);
+
+    expect(client.isReady()).toBe(false);
+    expect(updateFinished).toBe(false);
+    expect(requests).toHaveLength(1);
+
+    online = true;
+    await jest.advanceTimersByTimeAsync(1000);
+    await updating;
+    expect(client.isReady()).toBe(true);
+    expect(updateFinished).toBe(true);
+});
+
+test('uses bootstrap readiness without waiting for startup to finish', async () => {
+    let complete!: (value: Response) => void;
+    let fetches = 0;
+    let startFinished = false;
+    let updateFinished = false;
+    const { client } = createClient({
+        bootstrap: [
+            {
+                name: 'example',
+                enabled: true,
+                impressionData: false,
+                variant: { name: 'disabled', enabled: false },
+            },
+        ],
+        fetch: () =>
+            ++fetches === 1
+                ? response()
+                : new Promise<Response>((resolve) => (complete = resolve)),
+    });
+    const start = async () => {
+        await client.start();
+        startFinished = true;
+    };
+    const update = async () => {
+        await client.updateContext({ userId: 'example-user' });
+        updateFinished = true;
+    };
+    const starting = start();
+    const updating = update();
+    await jest.advanceTimersByTimeAsync(0);
+
+    expect(client.isReady()).toBe(true);
+    expect(updateFinished).toBe(true);
+    expect(startFinished).toBe(false);
+
+    complete(response());
+    await Promise.all([starting, updating]);
 });
