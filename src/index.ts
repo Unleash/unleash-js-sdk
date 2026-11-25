@@ -163,6 +163,7 @@ export class UnleashClient extends TinyEmitter {
     private fetchedFromServer = false;
     private usePOSTrequests = false;
     private started = false;
+    private stopCount = 0;
     private sdkState: SdkState;
     private lastError: any;
     private experimental: IExperimentalConfig;
@@ -432,6 +433,7 @@ export class UnleashClient extends TinyEmitter {
 
     public async start(): Promise<void> {
         this.started = true;
+        const stopCount = this.stopCount;
         if (this.timerRef) {
             console.error(
                 'Unleash SDK has already started, if you want to restart the SDK you should call client.stop() before starting again.'
@@ -439,17 +441,20 @@ export class UnleashClient extends TinyEmitter {
             return;
         }
         await this.ready;
-        this.metrics.start();
+        if (this.stopCount === stopCount) {
+            this.metrics.start();
+        }
         const interval = this.refreshInterval;
 
         await this.initialFetchToggles();
 
-        if (interval > 0) {
+        if (this.stopCount === stopCount && interval > 0 && !this.timerRef) {
             this.timerRef = setInterval(() => this.fetchToggles(), interval);
         }
     }
 
     public stop(): void {
+        this.stopCount++;
         if (this.timerRef) {
             clearInterval(this.timerRef);
             this.timerRef = undefined;

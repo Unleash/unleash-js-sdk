@@ -170,7 +170,7 @@ unleash.on('update', () => {
 You may provide a custom session id via the "context". If you do not provide a sessionId this SDK will create a random session id, which will also be stored in the provided storage (local storage). By always having a consistent sessionId available ensures that even "anonymous" users will get a consistent experience when feature toggles is evaluated, in combination with a gradual (percentage based) rollout. 
 
 ### Stop the SDK
-You can stop the Unleash client by calling the `stop` method. Once the client has been stopped, it will no longer check for updates or send metrics to the server.
+You can stop the Unleash client by calling `stop()`. This stops background polling for flag updates and scheduled metrics reporting. Initialization and requests already in progress may still finish.
 
 A stopped client _can_ be restarted.
 
